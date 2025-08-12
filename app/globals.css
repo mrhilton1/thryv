@@ -1,0 +1,425 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Dashboard specific styles */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.metric-card {
+  @apply bg-white rounded-lg border p-6 shadow-sm;
+}
+
+.metric-value {
+  @apply text-2xl font-bold text-gray-900;
+}
+
+.metric-label {
+  @apply text-sm font-medium text-gray-500;
+}
+
+.status-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.status-on-track {
+  @apply bg-green-100 text-green-800;
+}
+
+.status-at-risk {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.status-off-track {
+  @apply bg-red-100 text-red-800;
+}
+
+.status-complete {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.priority-high {
+  @apply bg-red-100 text-red-800;
+}
+
+.priority-medium {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.priority-low {
+  @apply bg-green-100 text-green-800;
+}
+
+.tier-1 {
+  @apply bg-purple-100 text-purple-800;
+}
+
+.tier-2 {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.tier-3 {
+  @apply bg-gray-100 text-gray-800;
+}
+
+/* Animation utilities */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Loading states */
+.skeleton {
+  @apply animate-pulse bg-gray-200 rounded;
+}
+
+.loading-spinner {
+  @apply animate-spin rounded-full border-2 border-gray-300 border-t-blue-600;
+}
+
+/* Table styles */
+.data-table {
+  @apply w-full border-collapse;
+}
+
+.data-table th {
+  @apply bg-gray-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+}
+
+.data-table td {
+  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-b border-gray-200;
+}
+
+.data-table tr:hover {
+  @apply bg-gray-50;
+}
+
+/* Form styles */
+.form-group {
+  @apply space-y-2;
+}
+
+.form-label {
+  @apply block text-sm font-medium text-gray-700;
+}
+
+.form-input {
+  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500;
+}
+
+.form-error {
+  @apply text-sm text-red-600;
+}
+
+/* Chart container */
+.chart-container {
+  @apply w-full h-64 md:h-80;
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .metric-card {
+    @apply p-4;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-break {
+    page-break-before: always;
+  }
+}
+
+/* Custom styles for the admin panel configuration section */
+@layer components {
+  .config-section {
+    @apply relative;
+  }
+
+  .add-item-form {
+    @apply bg-gradient-to-r from-gray-50 to-gray-100;
+    @apply border border-gray-200 rounded-lg;
+    @apply shadow-sm;
+    @apply transition-all duration-200;
+  }
+
+  .add-item-form:hover {
+    @apply shadow-md border-gray-300;
+  }
+
+  .add-item-form input {
+    @apply bg-white;
+    @apply border-gray-300;
+    @apply focus:border-blue-500 focus:ring-2 focus:ring-blue-200;
+    @apply transition-all duration-200;
+  }
+
+  .add-item-form button {
+    @apply bg-blue-600 hover:bg-blue-700;
+    @apply text-white;
+    @apply shadow-sm hover:shadow-md;
+    @apply transition-all duration-200;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .config-items-container {
+    @apply bg-gradient-to-br from-gray-50 to-gray-100;
+    @apply border-2 border-dashed border-gray-300;
+    @apply rounded-lg;
+    @apply transition-all duration-200;
+    @apply min-h-[80px];
+  }
+
+  .config-items-container:hover {
+    @apply border-gray-400 bg-gray-100;
+  }
+
+  .config-item {
+    @apply transition-all duration-200;
+    @apply hover:shadow-md;
+    @apply cursor-default;
+    @apply select-none;
+  }
+
+  .config-item:hover {
+    @apply transform scale-105;
+  }
+
+  .drag-handle {
+    @apply transition-colors duration-150;
+    @apply hover:bg-black/10;
+    @apply rounded;
+    @apply cursor-grab;
+  }
+
+  .drag-handle:active {
+    @apply cursor-grabbing;
+  }
+
+  .color-picker-trigger {
+    @apply transition-all duration-150;
+    @apply hover:bg-black/10;
+    @apply rounded;
+    @apply p-1;
+  }
+
+  .color-picker-content {
+    @apply bg-white;
+    @apply border border-gray-200;
+    @apply rounded-lg;
+    @apply shadow-lg;
+    @apply backdrop-blur-sm;
+  }
+
+  .color-grid {
+    @apply grid grid-cols-4 gap-2;
+  }
+
+  .color-option {
+    @apply transition-all duration-150;
+    @apply hover:scale-110;
+    @apply cursor-pointer;
+    @apply rounded;
+    @apply border-2;
+  }
+
+  .color-option:hover {
+    @apply shadow-md;
+  }
+
+  .remove-button {
+    @apply transition-all duration-150;
+    @apply hover:text-red-600;
+    @apply hover:bg-red-50;
+    @apply rounded;
+    @apply p-1;
+  }
+
+  /* Dragging states */
+  .config-item[data-rbd-drag-handle-draggable-id] {
+    @apply cursor-grabbing;
+  }
+
+  .config-item.dragging {
+    @apply shadow-2xl;
+    @apply scale-110;
+    @apply rotate-2;
+    @apply z-50;
+    @apply opacity-90;
+  }
+
+  /* Empty state styling */
+  .config-items-container:empty::after {
+    content: "Drag items here or add new ones above";
+    @apply text-gray-500;
+    @apply text-sm;
+    @apply italic;
+    @apply flex;
+    @apply items-center;
+    @apply justify-center;
+    @apply w-full;
+    @apply h-full;
+    @apply min-h-[60px];
+  }
+
+  /* Animation for new items */
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .config-item {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  /* Focus states for accessibility */
+  .add-item-form input:focus {
+    @apply outline-none;
+    @apply ring-2 ring-blue-200;
+    @apply border-blue-500;
+  }
+
+  .color-option:focus {
+    @apply outline-none;
+    @apply ring-2 ring-blue-200;
+  }
+
+  .remove-button:focus {
+    @apply outline-none;
+    @apply ring-2 ring-red-200;
+  }
+
+  .drag-handle:focus {
+    @apply outline-none;
+    @apply ring-2 ring-gray-200;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .config-items-container {
+    @apply flex-col;
+  }
+  
+  .config-item {
+    @apply w-full;
+    @apply justify-between;
+  }
+  
+  .add-item-form {
+    @apply flex-col;
+    @apply gap-3;
+  }
+}
+
+/* Print styles */
+@media print {
+  .config-section {
+    @apply break-inside-avoid;
+  }
+  
+  .add-item-form,
+  .drag-handle,
+  .color-picker-trigger,
+  .remove-button {
+    @apply hidden;
+  }
+}
