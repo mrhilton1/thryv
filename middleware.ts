@@ -6,11 +6,12 @@ export function middleware(request: NextRequest) {
   if (!protect) return NextResponse.next()
 
   const { pathname } = request.nextUrl
-  // Allow static files and the auth setup page
+  // Allow static files and auth pages
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/public') ||
     pathname === '/auth-setup' ||
+    pathname === '/login' ||
     pathname.startsWith('/api')
   ) {
     return NextResponse.next()
@@ -21,7 +22,7 @@ export function middleware(request: NextRequest) {
   if (hasSession) return NextResponse.next()
 
   const loginUrl = request.nextUrl.clone()
-  loginUrl.pathname = '/auth-setup'
+  loginUrl.pathname = '/login'
   loginUrl.searchParams.set('redirectedFrom', pathname)
   return NextResponse.redirect(loginUrl)
 }
