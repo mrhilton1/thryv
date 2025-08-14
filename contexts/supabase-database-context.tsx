@@ -52,6 +52,8 @@ interface SupabaseDatabaseContextType {
 
   // User methods
   updateUser: (id: string, updates: Partial<User>) => Promise<void>
+  createUser: (userData: any) => Promise<void>
+  deleteUser: (id: string) => Promise<void>
 
   // Initiative methods
   createInitiative: (initiative: CreateInitiativeData) => Promise<void>
@@ -277,6 +279,36 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
       console.log("=== Context.updateUser END ===")
     } catch (error) {
       console.error("Error in updateUser:", error)
+      throw error
+    }
+  }
+
+  const createUser = async (userData: any) => {
+    console.log("=== Context.createUser START ===")
+    console.log("Creating user:", userData)
+
+    try {
+      await databaseService.createUser(userData)
+      console.log("User created successfully, refreshing data...")
+      await loadData()
+      console.log("=== Context.createUser END ===")
+    } catch (error) {
+      console.error("Error in createUser:", error)
+      throw error
+    }
+  }
+
+  const deleteUser = async (id: string) => {
+    console.log("=== Context.deleteUser START ===")
+    console.log("Deleting user:", id)
+
+    try {
+      await databaseService.deleteUser(id)
+      console.log("User deleted successfully, refreshing data...")
+      await loadData()
+      console.log("=== Context.deleteUser END ===")
+    } catch (error) {
+      console.error("Error in deleteUser:", error)
       throw error
     }
   }
@@ -730,6 +762,8 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
     error,
     isOptimisticUpdate,
     updateUser,
+    createUser,
+    deleteUser,
     createInitiative,
     updateInitiative,
     deleteInitiative,

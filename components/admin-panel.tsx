@@ -1,226 +1,389 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSupabaseDatabase } from "@/contexts/supabase-database-context"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Badge } from "@/components/ui/badge"
 import {
+  Trash2,
+  Edit,
+  Plus,
+  GripVertical,
   Users,
   Target,
-  Award,
+  Trophy,
   SettingsIcon,
-  Plus,
-  Edit,
-  Trash2,
-  GripVertical,
-  Palette,
-  X,
-  CheckCircle,
+  BarChart3,
+  FileText,
+  Calendar,
+  Home,
   Circle,
-  TargetIcon,
+  CheckCircle,
   Flag,
   Star,
-  Home,
-  Calendar,
-  FileText,
-  Settings,
-  UsersIcon,
-  BarChart3,
   Zap,
+  X,
+  Palette,
 } from "lucide-react"
-import { DatabaseConnectionTest } from "./database-connection-test"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/hooks/use-toast"
+// Fixed import path to use correct database service location
+import { databaseService } from "@/lib/supabase/database-service"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { DatabaseConnectionTest } from "@/components/database-connection-test"
 
-interface AdminPanelProps {
-  onUpdateUser?: (userId: string, updates: any) => Promise<void>
+interface User {
+  id: string
+  name: string
+  email: string
+  role: string
+  created_at?: string
 }
 
-export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
+interface Initiative {
+  id: string
+  title: string
+  description?: string
+}
+
+export function AdminPanel() {
   const {
-    users = [],
-    initiatives = [],
-    achievements = [],
-    navigationConfig = [],
-    configItems = {
-      teams: [],
-      businessImpacts: [],
-      productAreas: [],
-      processStages: [],
-      priorities: [],
-      statuses: [],
-      gtmTypes: [],
-    },
-    fieldConfigurations = {},
+    users,
+    navigationConfig,
+    initiatives,
+    achievements,
+    configItems,
+    allConfigItems,
+    fieldConfigurations,
+    allFieldConfigurations,
+    createUser,
+    updateUser,
+    deleteUser,
+    updateNavigationConfig,
+    reorderNavigationConfig,
     createConfigItem,
     updateConfigItem,
     deleteConfigItem,
     reorderConfigItems,
-    updateNavigationConfig,
-    createNavigationConfig,
-    deleteNavigationConfig,
-    reorderNavigationConfig,
+    loadUsers,
+    loadNavigationConfig,
     updateFieldConfiguration,
     reorderFieldConfigurations,
   } = useSupabaseDatabase()
 
+  // User management state
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [userForm, setUserForm] = useState({ name: "", email: "", role: "user" })
+  const [deleteUserToConfirm, setDeleteUserToConfirm] = useState<User | null>(null)
+  const [userOwnedInitiatives, setUserOwnedInitiatives] = useState<Initiative[]>([])
+  const [transferToUserId, setTransferToUserId] = useState<string>("")
+
+  // Navigation management state
+  const [isNavModalOpen, setIsNavModalOpen] = useState(false)
   const [editingNavItem, setEditingNavItem] = useState<any>(null)
-  const [showNavItemDialog, setShowNavItemDialog] = useState(false)
-  const [navItemForm, setNavItemForm] = useState({
-    name: "",
-    description: "",
-    isVisible: true,
-    icon: "Circle",
-  })
+  const [navItemForm, setNavItemForm] = useState({ name: "", description: "", isVisible: true, icon: "Circle" })
   const [draggedItem, setDraggedItem] = useState<any>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [dragOverItem, setDragOverItem] = useState<any>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const [optimisticNavigation, setOptimisticNavigation] = useState<any[]>([])
 
+  // Config item management state
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false)
   const [editingConfigItem, setEditingConfigItem] = useState<any>(null)
-  const [showConfigItemDialog, setShowConfigItemDialog] = useState(false)
   const [configItemForm, setConfigItemForm] = useState({
-    name: "",
     category: "",
-    color: "#3b82f6",
+    label: "",
+    color: "gray",
+    isActive: true,
   })
-  const [draggedConfigItem, setDraggedConfigItem] = useState<any>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string>("teams")
 
+  const [newItemInputs, setNewItemInputs] = useState<Record<string, string>>({})
+
+  // Field configuration state
   const [draggedFieldId, setDraggedFieldId] = useState<string | null>(null)
   const [dragOverFieldId, setDragOverFieldId] = useState<string | null>(null)
 
-  const displayNavigationConfig = optimisticNavigation.length > 0 ? optimisticNavigation : navigationConfig
+  useEffect(() => {
+    // Only set optimistic navigation if it's empty (initial load) or if there was an error
+    if (navigationConfig && optimisticNavigation.length === 0) {
+      setOptimisticNavigation([...navigationConfig])
+    }
+  }, [navigationConfig]) // Removed optimisticNavigation from dependency array to prevent infinite loops
 
-  const handleUpdateNavigationItem = async (itemId: string, updates: any) => {
+  // User management functions
+  const handleCreateUser = () => {
+    setEditingUser(null)
+    setUserForm({ name: "", email: "", role: "user" })
+    setIsUserModalOpen(true)
+  }
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user)
+    setUserForm({ name: user.name, email: user.email, role: user.role })
+    setIsUserModalOpen(true)
+  }
+
+  const handleDeleteUser = async (user: User) => {
     try {
-      console.log("Updating navigation item:", itemId, updates)
-      await updateNavigationConfig(itemId, updates)
-    } catch (error) {
-      console.error("Error updating navigation item:", error)
+      const [ownedInitiatives, createdInitiatives] = await Promise.all([
+        databaseService.getInitiativesByOwner(user.id),
+        databaseService.getInitiativesByCreator(user.id),
+      ])
+
+      const allInitiatives = [...ownedInitiatives, ...createdInitiatives]
+
+      if (allInitiatives.length > 0) {
+        // User has initiatives - show transfer modal
+        setUserOwnedInitiatives(allInitiatives)
+        setDeleteUserToConfirm(user)
+        setTransferToUserId("")
+      } else {
+        // No initiatives - delete immediately
+        await deleteUser(user.id)
+        toast({
+          title: "Success",
+          description: `User ${user.name} has been deleted successfully.`,
+        })
+      }
+    } catch (error: any) {
+      console.error("Error checking user initiatives:", error)
+      toast({
+        title: "Error",
+        description: "Failed to check user initiatives. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleToggleVisibility = async (item: any, checked: boolean) => {
+  const confirmDeleteUser = async () => {
+    if (!deleteUserToConfirm) return
+
     try {
-      console.log("Toggling visibility for item:", item.id, "to:", checked)
-      console.log("Item data:", item)
+      if (userOwnedInitiatives.length > 0 && transferToUserId) {
+        await databaseService.transferInitiativeRelationships(deleteUserToConfirm.id, transferToUserId)
+      }
 
-      const currentItems = optimisticNavigation.length > 0 ? optimisticNavigation : navigationConfig
-      const updatedItems = currentItems.map((navItem) =>
-        navItem.id === item.id ? { ...navItem, isVisible: checked, is_visible: checked } : navItem,
-      )
-      setOptimisticNavigation(updatedItems)
-
+      await deleteUser(deleteUserToConfirm.id)
+      toast({
+        title: "Success",
+        description: `User ${deleteUserToConfirm.name} has been deleted successfully.`,
+      })
+      setDeleteUserToConfirm(null)
+      setUserOwnedInitiatives([])
+      setTransferToUserId("")
+    } catch (error: any) {
+      // Revert optimistic update on error
+      setOptimisticNavigation([...navigationConfig])
       window.dispatchEvent(
         new CustomEvent("optimisticNavigationUpdate", {
-          detail: updatedItems,
+          detail: navigationConfig,
         }),
       )
 
-      // Update the navigation item with proper field mapping
-      await updateNavigationConfig(item.id, {
-        is_visible: checked,
-        isVisible: checked, // Include both formats for compatibility
+      console.error("Error deleting user:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete user. Please try again.",
+        variant: "destructive",
       })
+    }
+  }
 
-      // Dispatch event to refresh navigation
-      window.dispatchEvent(new CustomEvent("navigationUpdated"))
-      console.log("Navigation toggle completed successfully")
+  const handleSaveUser = async () => {
+    try {
+      if (editingUser) {
+        await updateUser(editingUser.id, userForm)
+        toast({
+          title: "Success",
+          description: "User updated successfully",
+        })
+      } else {
+        await createUser(userForm)
+        toast({
+          title: "Success",
+          description: "User created successfully",
+        })
+      }
+      setIsUserModalOpen(false)
+      setUserForm({ name: "", email: "", role: "user" })
+      setEditingUser(null)
+    } catch (error: any) {
+      console.error("Error saving user:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save user",
+        variant: "destructive",
+      })
+    }
+  }
 
-      setTimeout(() => {
-        setOptimisticNavigation([])
-      }, 500)
-    } catch (error) {
-      console.error("Error toggling visibility:", error)
-      setOptimisticNavigation([])
-      // Show user-friendly error message
-      alert("Failed to update navigation visibility. Please try again.")
+  // Navigation management functions
+  const handleToggleVisibility = async (item: any) => {
+    const newVisibility = !(item.isVisible !== undefined ? item.isVisible : item.is_visible)
+
+    // Optimistic update
+    const updatedItems = optimisticNavigation.map((navItem) =>
+      navItem.id === item.id ? { ...navItem, isVisible: newVisibility, is_visible: newVisibility } : navItem,
+    )
+    setOptimisticNavigation(updatedItems)
+
+    // Dispatch event for main navigation
+    window.dispatchEvent(
+      new CustomEvent("optimisticNavigationUpdate", {
+        detail: updatedItems,
+      }),
+    )
+
+    try {
+      await updateNavigationConfig(item.id, {
+        is_visible: newVisibility,
+        isVisible: newVisibility,
+      })
+    } catch (error: any) {
+      // Revert optimistic update on error
+      setOptimisticNavigation([...navigationConfig])
+      window.dispatchEvent(
+        new CustomEvent("optimisticNavigationUpdate", {
+          detail: navigationConfig,
+        }),
+      )
+
+      console.error("Error updating visibility:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update visibility",
+        variant: "destructive",
+      })
     }
   }
 
   const handleDragStart = (e: React.DragEvent, item: any) => {
     setDraggedItem(item)
+    setIsDragging(true)
     e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/plain", item.id)
+
+    // Add visual feedback to dragged element
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "0.5"
+    }
   }
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleDragEnd = (e: React.DragEvent) => {
+    // Reset visual states
+    setDraggedItem(null)
+    setDragOverItem(null)
+    setIsDragging(false)
+
+    // Reset opacity
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = "1"
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent, item: any) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = "move"
-    setDragOverIndex(index)
+
+    // Set drag over item for visual feedback
+    if (draggedItem && draggedItem.id !== item.id) {
+      setDragOverItem(item)
+    }
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only clear drag over index if we're leaving the container entirely
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX
-    const y = e.clientY
-
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-      setDragOverIndex(null)
+    // Only clear drag over if we're actually leaving the element
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverItem(null)
     }
   }
 
-  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+  const handleDrop = async (e: React.DragEvent, targetItem: any) => {
     e.preventDefault()
-    setDragOverIndex(null)
+    setDragOverItem(null)
 
-    if (!draggedItem) return
-
-    const sortedItems = [...navigationConfig].sort(
-      (a, b) => (a.sortOrder || a.sort_order || 0) - (b.sortOrder || b.sort_order || 0),
-    )
-
-    const draggedIndex = sortedItems.findIndex((item) => item.id === draggedItem.id)
-
-    if (draggedIndex === targetIndex) {
+    if (!draggedItem || draggedItem.id === targetItem.id) {
       setDraggedItem(null)
+      setIsDragging(false)
       return
     }
 
-    // Create new array with reordered items
-    const reorderedItems = [...sortedItems]
-    const [draggedItemData] = reorderedItems.splice(draggedIndex, 1)
-    reorderedItems.splice(targetIndex, 0, draggedItemData)
+    const currentItems = [...optimisticNavigation].sort((a, b) => {
+      const orderA = a.sortOrder || a.sort_order || 0
+      const orderB = b.sortOrder || b.sort_order || 0
+      return orderA - orderB
+    })
 
-    const optimisticItems = reorderedItems.map((item, index) => ({
+    const draggedIndex = currentItems.findIndex((item) => item.id === draggedItem.id)
+    const targetIndex = currentItems.findIndex((item) => item.id === targetItem.id)
+
+    if (draggedIndex === -1 || targetIndex === -1) return
+
+    // Remove dragged item and insert at target position
+    const [removed] = currentItems.splice(draggedIndex, 1)
+    currentItems.splice(targetIndex, 0, removed)
+
+    // Update sort orders to match new positions
+    const reorderedItems = currentItems.map((item, index) => ({
       ...item,
-      sort_order: index + 1,
       sortOrder: index + 1,
+      sort_order: index + 1,
     }))
 
-    setOptimisticNavigation(optimisticItems)
+    // STEP 1: Update Navigation management order (immediate UI update)
+    setOptimisticNavigation(reorderedItems)
+
+    // STEP 2: Update main navigation (dispatch event)
     window.dispatchEvent(
       new CustomEvent("optimisticNavigationUpdate", {
-        detail: optimisticItems,
+        detail: reorderedItems,
       }),
     )
 
-    const updates = reorderedItems.map((item, index) => ({
-      id: item.id,
-      orderIndex: index + 1,
-    }))
+    // STEP 3: Backend API calls (async, don't block UI)
+    setTimeout(async () => {
+      try {
+        const updates = reorderedItems.map((item, index) => ({
+          id: item.id,
+          orderIndex: index + 1,
+        }))
 
-    try {
-      console.log("Reordering navigation items:", updates)
-      await reorderNavigationConfig(updates)
+        await reorderNavigationConfig(updates)
 
-      window.dispatchEvent(new CustomEvent("navigationUpdated"))
+        window.dispatchEvent(
+          new CustomEvent("navigationUpdated", {
+            detail: { type: "reorder", success: true },
+          }),
+        )
+      } catch (error: any) {
+        // Revert optimistic update on error
+        setOptimisticNavigation([...navigationConfig])
+        window.dispatchEvent(
+          new CustomEvent("optimisticNavigationUpdate", {
+            detail: navigationConfig,
+          }),
+        )
 
-      // The navigationUpdated event will trigger a fresh load from database
-    } catch (error) {
-      console.error("Error reordering navigation items:", error)
-      setOptimisticNavigation([])
-    }
+        console.error("Error reordering navigation:", error)
+        toast({
+          title: "Error",
+          description: "Failed to reorder navigation items",
+          variant: "destructive",
+        })
+      }
+    }, 0)
 
     setDraggedItem(null)
+    setIsDragging(false)
   }
 
   const handleEditNavItem = (item: any) => {
@@ -228,158 +391,250 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
     setNavItemForm({
       name: item.itemLabel || item.item_label || item.name || "",
       description: item.description || "",
-      isVisible: item.isVisible || item.is_visible || false,
+      isVisible: item.isVisible !== undefined ? item.isVisible : item.is_visible !== undefined ? item.is_visible : true,
       icon: item.icon || "Circle",
     })
-    setShowNavItemDialog(true)
+    setIsNavModalOpen(true)
   }
 
   const handleSaveNavItem = async () => {
+    if (!editingNavItem) return
+
+    // Optimistic update
+    const updatedItems = optimisticNavigation.map((item) =>
+      item.id === editingNavItem.id
+        ? {
+            ...item,
+            itemLabel: navItemForm.name,
+            item_label: navItemForm.name,
+            isVisible: navItemForm.isVisible,
+            is_visible: navItemForm.isVisible,
+            icon: navItemForm.icon,
+          }
+        : item,
+    )
+    setOptimisticNavigation(updatedItems)
+
+    // Dispatch event for main navigation
+    window.dispatchEvent(
+      new CustomEvent("optimisticNavigationUpdate", {
+        detail: updatedItems,
+      }),
+    )
+
     try {
-      const updates = {
+      await updateNavigationConfig(editingNavItem.id, {
         item_label: navItemForm.name,
-        description: navItemForm.description,
+        itemLabel: navItemForm.name,
         is_visible: navItemForm.isVisible,
+        isVisible: navItemForm.isVisible,
         icon: navItemForm.icon,
-      }
+      })
 
-      if (editingNavItem) {
-        const currentItems = optimisticNavigation.length > 0 ? optimisticNavigation : navigationConfig
-        const optimisticUpdate = currentItems.map((item) =>
-          item.id === editingNavItem.id
-            ? {
-                ...item,
-                itemLabel: navItemForm.name,
-                item_label: navItemForm.name,
-                description: navItemForm.description,
-                isVisible: navItemForm.isVisible,
-                is_visible: navItemForm.isVisible,
-                icon: navItemForm.icon,
-              }
-            : item,
-        )
-        setOptimisticNavigation(optimisticUpdate)
-
-        window.dispatchEvent(
-          new CustomEvent("optimisticNavigationUpdate", {
-            detail: optimisticUpdate,
-          }),
-        )
-
-        await handleUpdateNavigationItem(editingNavItem.id, updates)
-
-        window.dispatchEvent(new CustomEvent("navigationUpdated"))
-
-        setTimeout(() => {
-          setOptimisticNavigation([])
-        }, 500)
-      } else {
-        await createNavigationConfig({
-          item_key: navItemForm.name.toLowerCase().replace(/\s+/g, "-"),
-          ...updates,
-        })
-        window.dispatchEvent(new CustomEvent("navigationUpdated"))
-      }
-
-      setShowNavItemDialog(false)
+      setIsNavModalOpen(false)
       setEditingNavItem(null)
       setNavItemForm({ name: "", description: "", isVisible: true, icon: "Circle" })
-    } catch (error) {
-      console.error("Error saving navigation item:", error)
-      if (editingNavItem) {
-        setOptimisticNavigation([])
-      }
+
+      toast({
+        title: "Success",
+        description: "Navigation item updated successfully",
+      })
+    } catch (error: any) {
+      // Revert optimistic update on error
+      setOptimisticNavigation([...navigationConfig])
+      window.dispatchEvent(
+        new CustomEvent("optimisticNavigationUpdate", {
+          detail: navigationConfig,
+        }),
+      )
+
+      console.error("Error updating navigation item:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update navigation item",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleDeleteNavItem = async (itemId: string) => {
-    if (confirm("Are you sure you want to delete this navigation item?")) {
+  const getIcon = (iconName: string) => {
+    const icons: { [key: string]: any } = {
+      BarChart3,
+      Target,
+      FileText,
+      Calendar,
+      Settings: SettingsIcon,
+      Home,
+      Circle,
+      CheckCircle,
+      Flag,
+      Star,
+      Zap,
+      Users,
+    }
+    return icons[iconName] || BarChart3
+  }
+
+  const availableUsers = users?.filter((u) => u.id !== deleteUserToConfirm?.id) || []
+
+  // Config item management functions
+  const handleCreateConfigItem = (category: string) => {
+    setEditingConfigItem(null)
+    setConfigItemForm({
+      category,
+      label: "",
+      color: "gray",
+      isActive: true,
+    })
+    setIsConfigModalOpen(true)
+  }
+
+  const handleEditConfigItem = (item: any) => {
+    setEditingConfigItem(item)
+    setConfigItemForm({
+      category: item.category,
+      label: item.label,
+      color: item.color || "gray",
+      isActive: item.isActive !== undefined ? item.isActive : true,
+    })
+    setIsConfigModalOpen(true)
+  }
+
+  const handleSaveConfigItem = async () => {
+    try {
+      if (editingConfigItem) {
+        await updateConfigItem(editingConfigItem.id, configItemForm)
+        toast({
+          title: "Success",
+          description: "Configuration item updated successfully",
+        })
+      } else {
+        await createConfigItem({
+          ...configItemForm,
+          sortOrder: (configItems[configItemForm.category as keyof typeof configItems]?.length || 0) + 1,
+        })
+        toast({
+          title: "Success",
+          description: "Configuration item created successfully",
+        })
+      }
+      setIsConfigModalOpen(false)
+      setConfigItemForm({ category: "", label: "", color: "gray", isActive: true })
+      setEditingConfigItem(null)
+    } catch (error: any) {
+      console.error("Error saving config item:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save configuration item",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteConfigItem = async (item: any) => {
+    if (confirm(`Are you sure you want to delete "${item.label}"?`)) {
       try {
-        await deleteNavigationConfig(itemId)
-      } catch (error) {
-        console.error("Error deleting navigation item:", error)
+        await deleteConfigItem(item.id)
+        toast({
+          title: "Success",
+          description: "Configuration item deleted successfully",
+        })
+      } catch (error: any) {
+        console.error("Error deleting config item:", error)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete configuration item",
+          variant: "destructive",
+        })
       }
     }
   }
 
-  const handleAddNavItem = () => {
-    setEditingNavItem(null)
-    setNavItemForm({ name: "", description: "", isVisible: true, icon: "Circle" })
-    setShowNavItemDialog(true)
-  }
+  const handleAddConfigItem = async (category: string, label: string) => {
+    if (!label) return
 
-  const adminUsers = users.filter((user) => user.role === "admin")
-
-  const sortedNavigationConfig = [...displayNavigationConfig].sort(
-    (a, b) => (a.sortOrder || a.sort_order || 0) - (b.sortOrder || b.sort_order || 0),
-  )
-
-  const handleCreateConfigItem = async (category: string, name: string, color: string) => {
     try {
       await createConfigItem({
-        name,
         category,
-        color,
+        label,
+        color: "gray",
+        isActive: true,
         sortOrder: (configItems[category as keyof typeof configItems]?.length || 0) + 1,
       })
-    } catch (error) {
-      console.error("Error creating config item:", error)
+      setNewItemInputs({ ...newItemInputs, [category]: "" })
+      toast({
+        title: "Success",
+        description: "Configuration item added successfully",
+      })
+    } catch (error: any) {
+      console.error("Error adding config item:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add configuration item",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleUpdateConfigItemColor = async (id: string, color: string) => {
+  const handleColorChange = async (item: any, color: string) => {
     try {
-      await updateConfigItem(id, { color })
-    } catch (error) {
-      console.error("Error updating config item color:", error)
+      await updateConfigItem(item.id, { ...item, color })
+      toast({
+        title: "Success",
+        description: "Color updated successfully",
+      })
+    } catch (error: any) {
+      console.error("Error updating color:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update color",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleDeleteConfigItem = async (id: string) => {
-    if (confirm("Are you sure you want to delete this item?")) {
-      try {
-        await deleteConfigItem(id)
-      } catch (error) {
-        console.error("Error deleting config item:", error)
-      }
-    }
-  }
-
-  const handleConfigItemDragStart = (e: React.DragEvent, item: any) => {
-    setDraggedConfigItem(item)
-    e.dataTransfer.effectAllowed = "move"
-  }
-
-  const handleConfigItemDrop = async (e: React.DragEvent, targetItem: any, category: string) => {
-    e.preventDefault()
-
-    if (!draggedConfigItem || draggedConfigItem.id === targetItem.id) {
-      setDraggedConfigItem(null)
-      return
-    }
-
-    const categoryItems = configItems[category as keyof typeof configItems] || []
-    const draggedIndex = categoryItems.findIndex((item) => item.id === draggedConfigItem.id)
-    const targetIndex = categoryItems.findIndex((item) => item.id === targetItem.id)
-
-    if (draggedIndex === -1 || targetIndex === -1) return
-
-    const reorderedItems = [...categoryItems]
-    const [draggedItem] = reorderedItems.splice(draggedIndex, 1)
-    reorderedItems.splice(targetIndex, 0, draggedItem)
-
-    const updates = reorderedItems.map((item, index) => ({
-      id: item.id,
-      sortOrder: index + 1,
-    }))
-
+  const handleRemoveConfigItem = async (item: any) => {
     try {
-      await reorderConfigItems(category, updates)
-    } catch (error) {
-      console.error("Error reordering config items:", error)
+      await deleteConfigItem(item.id)
+      toast({
+        title: "Success",
+        description: "Configuration item removed successfully",
+      })
+    } catch (error: any) {
+      console.error("Error removing config item:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove configuration item",
+        variant: "destructive",
+      })
     }
+  }
 
-    setDraggedConfigItem(null)
+  const getCategoryDisplayName = (category: string) => {
+    const names: { [key: string]: string } = {
+      teams: "Teams",
+      businessImpacts: "Business Impacts",
+      productAreas: "Product Areas",
+      processStages: "Process Stages",
+      priorities: "Priorities",
+      statuses: "Statuses",
+      gtmTypes: "GTM Types",
+    }
+    return names[category] || category
+  }
+
+  const getColorClasses = (color: string) => {
+    const colors: { [key: string]: string } = {
+      gray: "bg-gray-100 text-gray-800 border-gray-200",
+      red: "bg-red-100 text-red-800 border-red-200",
+      orange: "bg-orange-100 text-orange-800 border-orange-200",
+      yellow: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      green: "bg-green-100 text-green-800 border-green-200",
+      blue: "bg-blue-100 text-blue-800 border-blue-200",
+      purple: "bg-purple-100 text-purple-800 border-purple-200",
+      pink: "bg-pink-100 text-pink-800 border-pink-200",
+    }
+    return colors[color] || colors.gray
   }
 
   const ConfigSection = ({
@@ -397,7 +652,7 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
 
     const handleAdd = async () => {
       if (newItem.trim()) {
-        await handleCreateConfigItem(category, newItem.trim(), getRandomColor())
+        await handleAddConfigItem(category, newItem.trim())
         setNewItem("")
       }
     }
@@ -415,11 +670,6 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
       }))
 
       reorderConfigItems(category, updates)
-    }
-
-    const getRandomColor = () => {
-      const colors = ["red", "orange", "yellow", "green", "blue", "purple", "pink"]
-      return colors[Math.floor(Math.random() * colors.length)]
     }
 
     const getColorClasses = (color?: string) => {
@@ -448,18 +698,34 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
     const handleColorChange = async (id: string, color: string) => {
       try {
         await updateConfigItem(id, { color })
-      } catch (error) {
+        toast({
+          title: "Success",
+          description: "Color updated successfully",
+        })
+      } catch (error: any) {
         console.error("Error updating config item color:", error)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update color",
+          variant: "destructive",
+        })
       }
     }
 
     const handleDeleteItem = async (id: string) => {
-      if (confirm("Are you sure you want to delete this item?")) {
-        try {
-          await deleteConfigItem(id)
-        } catch (error) {
-          console.error("Error deleting config item:", error)
-        }
+      try {
+        await deleteConfigItem(id)
+        toast({
+          title: "Success",
+          description: "Configuration item removed successfully",
+        })
+      } catch (error: any) {
+        console.error("Error deleting config item:", error)
+        toast({
+          title: "Error",
+          description: error.message || "Failed to remove configuration item",
+          variant: "destructive",
+        })
       }
     }
 
@@ -541,71 +807,90 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
   const handleToggleFieldRequired = async (fieldId: string, isRequired: boolean) => {
     try {
       await updateFieldConfiguration(fieldId, { isRequired })
-      // Dispatch event to refresh any dependent components
-      window.dispatchEvent(new CustomEvent("fieldConfigurationUpdated"))
-    } catch (error) {
-      console.error("Error updating field required status:", error)
+      toast({
+        title: "Success",
+        description: `Field requirement updated successfully`,
+      })
+    } catch (error: any) {
+      console.error("Error updating field requirement:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update field requirement",
+        variant: "destructive",
+      })
     }
   }
 
   const handleToggleFieldVisible = async (fieldId: string, isVisible: boolean) => {
     try {
       await updateFieldConfiguration(fieldId, { isVisible })
-      // Dispatch event to refresh any dependent components
-      window.dispatchEvent(new CustomEvent("fieldConfigurationUpdated"))
-    } catch (error) {
+      toast({
+        title: "Success",
+        description: `Field visibility updated successfully`,
+      })
+    } catch (error: any) {
       console.error("Error updating field visibility:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update field visibility",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleFieldDrop = async (sectionKey: string, draggedId: string, targetId: string) => {
-    if (draggedId === targetId) return
-
-    const fields = fieldConfigurations[sectionKey] || []
-    const draggedIndex = fields.findIndex((f) => f.id === draggedId)
-    const targetIndex = fields.findIndex((f) => f.id === targetId)
-
-    if (draggedIndex === -1 || targetIndex === -1) return
-
-    // Create reordered array
-    const reorderedFields = [...fields]
-    const [draggedField] = reorderedFields.splice(draggedIndex, 1)
-    reorderedFields.splice(targetIndex, 0, draggedField)
-
-    const updates = reorderedFields.map((field, index) => ({
-      id: field.id,
-      order: index + 1,
-    }))
-
+  const handleFieldDrop = async (sectionKey: string, draggedFieldId: string, targetFieldId: string) => {
     try {
+      if (!fieldConfigurations) return
+
+      const sectionFields = [...fieldConfigurations[sectionKey]]
+      const draggedIndex = sectionFields.findIndex((field) => field.id === draggedFieldId)
+      const targetIndex = sectionFields.findIndex((field) => field.id === targetFieldId)
+
+      if (draggedIndex === -1 || targetIndex === -1) {
+        console.warn("Dragged or target field not found in section.")
+        return
+      }
+
+      const [draggedField] = sectionFields.splice(draggedIndex, 1)
+      sectionFields.splice(targetIndex, 0, draggedField)
+
+      const updates = sectionFields.map((field, index) => ({
+        id: field.id,
+        order: index + 1,
+      }))
+
       await reorderFieldConfigurations(updates)
 
-      // Dispatch event to refresh
-      window.dispatchEvent(new CustomEvent("fieldConfigurationUpdated"))
-    } catch (error) {
+      toast({
+        title: "Success",
+        description: "Field order updated successfully",
+      })
+    } catch (error: any) {
       console.error("Error reordering fields:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reorder fields",
+        variant: "destructive",
+      })
     }
-
-    setDraggedFieldId(null)
-    setDragOverFieldId(null)
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Admin Panel</h1>
+        <h1 className="text-3xl font-bold">Admin Panel</h1>
         <p className="text-muted-foreground">Manage users, system settings, and database configuration</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{users.length}</div>
+            <div className="text-2xl font-bold">{users?.length || 0}</div>
             <p className="text-xs text-muted-foreground">Active system users</p>
           </CardContent>
         </Card>
@@ -616,7 +901,7 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{initiatives.length}</div>
+            <div className="text-2xl font-bold">{initiatives?.length || 0}</div>
             <p className="text-xs text-muted-foreground">Total initiatives</p>
           </CardContent>
         </Card>
@@ -624,10 +909,10 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Achievements</CardTitle>
-            <Award className="h-4 w-4 text-muted-foreground" />
+            <Trophy className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{achievements.length}</div>
+            <div className="text-2xl font-bold">{achievements?.length || 0}</div>
             <p className="text-xs text-muted-foreground">Recorded achievements</p>
           </CardContent>
         </Card>
@@ -638,14 +923,14 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
             <SettingsIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{adminUsers.length}</div>
+            <div className="text-2xl font-bold">{users?.filter((u) => u.role === "admin").length || 0}</div>
             <p className="text-xs text-muted-foreground">System administrators</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Admin Tabs */}
-      <Tabs defaultValue="navigation" className="space-y-4">
+      {/* Tabs */}
+      <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="navigation">Navigation</TabsTrigger>
@@ -654,132 +939,135 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
           <TabsTrigger value="database">Database</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="navigation" className="space-y-4">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight">Navigation Management</h2>
-                <p className="text-muted-foreground">
-                  Manage navigation menu items. Drag to reorder, toggle visibility, edit names, or add custom navigation
-                  items.
-                </p>
-              </div>
+        {/* User Management Tab */}
+        <TabsContent value="users" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-2xl font-bold">User Management</h2>
+              <p className="text-muted-foreground">Manage system users and their roles</p>
             </div>
+            <Button onClick={handleCreateUser}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create User
+            </Button>
+          </div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Navigation Items</CardTitle>
-                  <CardDescription>
-                    Manage navigation menu items - drag to reorder, toggle visibility, or edit properties
-                  </CardDescription>
-                </div>
-                <Button onClick={handleAddNavItem}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Navigation Item
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {sortedNavigationConfig.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No navigation items found. Add some items to get started.
+          <div className="space-y-4">
+            {users?.map((user) => (
+              <Card key={user.id}>
+                <CardContent className="flex items-center justify-between p-4">
+                  <div>
+                    <h3 className="font-semibold">{user.name}</h3>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
                   </div>
-                ) : (
-                  sortedNavigationConfig.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-move ${
-                        dragOverIndex === index ? "border-blue-500 bg-blue-50" : ""
-                      } ${draggedItem?.id === item.id ? "opacity-50" : ""}`}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, item)}
-                      onDragOver={(e) => handleDragOver(e, index)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, index)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <GripVertical className="h-4 w-4 text-gray-400 cursor-move hover:text-gray-600" />
-                        {(() => {
-                          switch (item.icon) {
-                            case "Circle":
-                              return <Circle className="h-5 w-5 text-gray-600" />
-                            case "CheckCircle":
-                              return <CheckCircle className="h-5 w-5 text-gray-600" />
-                            case "Target":
-                              return <TargetIcon className="h-5 w-5 text-gray-600" />
-                            case "Flag":
-                              return <Flag className="h-5 w-5 text-gray-600" />
-                            case "Star":
-                              return <Star className="h-5 w-5 text-gray-600" />
-                            case "Home":
-                              return <Home className="h-5 w-5 text-gray-600" />
-                            case "Calendar":
-                              return <Calendar className="h-5 w-5 text-gray-600" />
-                            case "FileText":
-                              return <FileText className="h-5 w-5 text-gray-600" />
-                            case "Settings":
-                              return <Settings className="h-5 w-5 text-gray-600" />
-                            case "Users":
-                              return <UsersIcon className="h-5 w-5 text-gray-600" />
-                            case "BarChart3":
-                              return <BarChart3 className="h-5 w-5 text-gray-600" />
-                            case "Zap":
-                              return <Zap className="h-5 w-5 text-gray-600" />
-                            default:
-                              return <Circle className="h-5 w-5 text-gray-600" />
-                          }
-                        })()}
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">
-                            {item.itemLabel || item.item_label || item.name || "Unnamed Item"}
-                          </span>
-                          {!(item.isVisible || item.is_visible) && <Badge variant="secondary">Hidden</Badge>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">Visible</span>
-                        <Switch
-                          checked={Boolean(item.isVisible === true || item.is_visible === true)}
-                          onCheckedChange={(checked) => handleToggleVisibility(item, checked)}
-                          disabled={false}
-                        />
-                        <Button variant="ghost" size="sm" onClick={() => handleEditNavItem(item)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteNavItem(item.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role}</Badge>
+                    <Button variant="ghost" size="sm" onClick={() => handleEditUser(user)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteUser(user)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </TabsContent>
 
-        <TabsContent value="users" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>Manage system users and their roles</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {users.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <div className="font-medium">{user.name}</div>
-                      <div className="text-sm text-muted-foreground">{user.email}</div>
-                    </div>
-                    <Badge variant={user.role === "admin" ? "default" : "secondary"}>{user.role}</Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        {/* Navigation Management Tab */}
+        <TabsContent value="navigation" className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold">Navigation Management</h2>
+            <p className="text-muted-foreground">
+              Manage navigation menu items. Drag to reorder, toggle visibility, edit names, or add custom navigation
+              items.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Navigation Items</h3>
+              <p className="text-sm text-muted-foreground">
+                Manage navigation menu items - drag to reorder, toggle visibility, or edit properties
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              {optimisticNavigation
+                ?.sort((a, b) => {
+                  const orderA = a.sortOrder || a.sort_order || 0
+                  const orderB = b.sortOrder || b.sort_order || 0
+                  return orderA - orderB
+                })
+                .map((item) => {
+                  const IconComponent = getIcon(item.icon)
+                  const isVisible = item.isVisible !== undefined ? item.isVisible : item.is_visible
+                  const isDraggedItem = draggedItem?.id === item.id
+                  const isDragOver = dragOverItem?.id === item.id
+
+                  return (
+                    <Card
+                      key={item.id}
+                      className={`
+                        cursor-move transition-all duration-200
+                        ${isDraggedItem ? "opacity-50 scale-105 shadow-lg bg-blue-50 border-blue-200" : "hover:bg-muted/50"}
+                        ${isDragOver ? "border-blue-400 border-2 bg-blue-50" : ""}
+                        ${isDragging && !isDraggedItem ? "hover:border-blue-300 hover:bg-blue-25" : ""}
+                      `}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, item)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => handleDragOver(e, item)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, item)}
+                    >
+                      <CardContent className="flex items-center justify-between p-4">
+                        <div className="flex items-center gap-3">
+                          <GripVertical
+                            className={`h-4 w-4 transition-colors ${
+                              isDraggedItem ? "text-blue-500" : "text-muted-foreground"
+                            }`}
+                          />
+                          <IconComponent className={`h-4 w-4 ${isDraggedItem ? "text-blue-500" : ""}`} />
+                          <span className={`font-medium ${isDraggedItem ? "text-blue-700" : ""}`}>
+                            {item.itemLabel || item.item_label || item.name}
+                          </span>
+                          {!isVisible && (
+                            <Badge variant="secondary" className="text-xs">
+                              Hidden
+                            </Badge>
+                          )}
+                          {isDragOver && (
+                            <Badge variant="default" className="text-xs bg-blue-500">
+                              Drop here
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor={`visible-${item.id}`} className="text-sm">
+                              Visible
+                            </Label>
+                            <Switch
+                              id={`visible-${item.id}`}
+                              checked={isVisible}
+                              onCheckedChange={() => handleToggleVisibility(item)}
+                            />
+                          </div>
+                          <Button variant="ghost" size="sm" onClick={() => handleEditNavItem(item)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+            </div>
+          </div>
         </TabsContent>
 
+        {/* Configuration Tab */}
         <TabsContent value="config" className="space-y-4">
           <div className="space-y-6">
             <div>
@@ -840,6 +1128,7 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
           </div>
         </TabsContent>
 
+        {/* Required Fields Tab */}
         <TabsContent value="fields" className="space-y-4">
           {Object.entries(fieldConfigurations).map(([sectionKey, fields]) => {
             const sectionTitle = sectionKey
@@ -956,6 +1245,7 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
           })}
         </TabsContent>
 
+        {/* Database Tab */}
         <TabsContent value="database" className="space-y-4">
           <Card>
             <CardHeader>
@@ -969,186 +1259,253 @@ export function AdminPanel({ onUpdateUser }: AdminPanelProps) {
         </TabsContent>
       </Tabs>
 
-      {/* Navigation Item Dialog */}
-      <Dialog open={showNavItemDialog} onOpenChange={setShowNavItemDialog}>
+      {/* User Modal */}
+      <Dialog open={isUserModalOpen} onOpenChange={setIsUserModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingNavItem ? "Edit Navigation Item" : "Add Navigation Item"}</DialogTitle>
+            <DialogTitle>{editingUser ? "Edit User" : "Create New User"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
+                value={userForm.name}
+                onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                placeholder="Enter user name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={userForm.email}
+                onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                placeholder="Enter email address"
+              />
+            </div>
+            <div>
+              <Label htmlFor="role">Role</Label>
+              <Select value={userForm.role} onValueChange={(value) => setUserForm({ ...userForm, role: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="executive">Executive</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUserModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveUser}>{editingUser ? "Update User" : "Create User"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enhanced Delete User Modal */}
+      <Dialog open={!!deleteUserToConfirm} onOpenChange={() => setDeleteUserToConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>
+              Are you sure you want to delete <strong>{deleteUserToConfirm?.name}</strong>?
+            </p>
+
+            {userOwnedInitiatives.length > 0 && (
+              <div className="space-y-3">
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm font-medium text-yellow-800">
+                    ⚠️ This user owns {userOwnedInitiatives.length} initiative(s):
+                  </p>
+                  <ul className="mt-2 text-sm text-yellow-700">
+                    {userOwnedInitiatives.map((initiative) => (
+                      <li key={initiative.id} className="ml-4">
+                        • {initiative.title}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="transferUser">Transfer ownership to:</Label>
+                  <Select value={transferToUserId} onValueChange={setTransferToUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a user to transfer initiatives to" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {userOwnedInitiatives.length === 0 && (
+              <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteUserToConfirm(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteUser}
+              disabled={userOwnedInitiatives.length > 0 && !transferToUserId}
+            >
+              {userOwnedInitiatives.length > 0 ? "Transfer & Delete User" : "Delete User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Navigation Item Edit Modal */}
+      <Dialog open={isNavModalOpen} onOpenChange={setIsNavModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Navigation Item</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="nav-name">Name</Label>
+              <Input
+                id="nav-name"
                 value={navItemForm.name}
                 onChange={(e) => setNavItemForm({ ...navItemForm, name: e.target.value })}
-                placeholder="Navigation item name"
+                placeholder="Enter navigation item name"
               />
             </div>
             <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={navItemForm.description}
-                onChange={(e) => setNavItemForm({ ...navItemForm, description: e.target.value })}
-                placeholder="Optional description"
-              />
-            </div>
-            <div>
-              <Label htmlFor="icon">Icon</Label>
+              <Label htmlFor="nav-icon">Icon</Label>
               <Select
                 value={navItemForm.icon}
                 onValueChange={(value) => setNavItemForm({ ...navItemForm, icon: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select an icon" />
+                  <SelectValue placeholder="Select icon" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Circle">
-                    <div className="flex items-center gap-2">
-                      <Circle className="w-4 h-4" />
-                      Circle
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="CheckCircle">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4" />
-                      Check Circle
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Target">
-                    <div className="flex items-center gap-2">
-                      <TargetIcon className="w-4 h-4" />
-                      Target
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Flag">
-                    <div className="flex items-center gap-2">
-                      <Flag className="w-4 h-4" />
-                      Flag
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Star">
-                    <div className="flex items-center gap-2">
-                      <Star className="w-4 h-4" />
-                      Star
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Home">
-                    <div className="flex items-center gap-2">
-                      <Home className="w-4 h-4" />
-                      Home
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Calendar">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      Calendar
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="FileText">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      File Text
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Settings">
-                    <div className="flex items-center gap-2">
-                      <Settings className="w-4 h-4" />
-                      Settings
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Users">
-                    <div className="flex items-center gap-2">
-                      <UsersIcon className="w-4 h-4" />
-                      Users
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="BarChart3">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4" />
-                      Bar Chart
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="Zap">
-                    <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4" />
-                      Zap
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="Circle">Circle</SelectItem>
+                  <SelectItem value="CheckCircle">Check Circle</SelectItem>
+                  <SelectItem value="Target">Target</SelectItem>
+                  <SelectItem value="Flag">Flag</SelectItem>
+                  <SelectItem value="Star">Star</SelectItem>
+                  <SelectItem value="Home">Home</SelectItem>
+                  <SelectItem value="Calendar">Calendar</SelectItem>
+                  <SelectItem value="FileText">File Text</SelectItem>
+                  <SelectItem value="Settings">Settings</SelectItem>
+                  <SelectItem value="Users">Users</SelectItem>
+                  <SelectItem value="BarChart3">Bar Chart</SelectItem>
+                  <SelectItem value="Zap">Zap</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="flex items-center space-x-2">
               <Switch
-                id="visible"
-                checked={Boolean(navItemForm.isVisible)}
+                id="nav-visible"
+                checked={navItemForm.isVisible}
                 onCheckedChange={(checked) => setNavItemForm({ ...navItemForm, isVisible: checked })}
-                disabled={false}
               />
-              <Label htmlFor="visible">Visible in navigation</Label>
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowNavItemDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveNavItem}>{editingNavItem ? "Update" : "Create"}</Button>
+              <Label htmlFor="nav-visible">Visible</Label>
             </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsNavModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveNavItem}>Save Changes</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showConfigItemDialog} onOpenChange={setShowConfigItemDialog}>
+      {/* Config Item Modal */}
+      <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Configuration Item</DialogTitle>
+            <DialogTitle>{editingConfigItem ? "Edit Configuration Item" : "Create Configuration Item"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="config-name">Name</Label>
+              <Label htmlFor="config-category">Category</Label>
+              <Select
+                value={configItemForm.category}
+                onValueChange={(value) => setConfigItemForm({ ...configItemForm, category: value })}
+                disabled={!!editingConfigItem}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="teams">Teams</SelectItem>
+                  <SelectItem value="businessImpacts">Business Impacts</SelectItem>
+                  <SelectItem value="productAreas">Product Areas</SelectItem>
+                  <SelectItem value="processStages">Process Stages</SelectItem>
+                  <SelectItem value="priorities">Priorities</SelectItem>
+                  <SelectItem value="statuses">Statuses</SelectItem>
+                  <SelectItem value="gtmTypes">GTM Types</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="config-label">Label</Label>
               <Input
-                id="config-name"
-                value={configItemForm.name}
-                onChange={(e) => setConfigItemForm({ ...configItemForm, name: e.target.value })}
-                placeholder="Item name"
+                id="config-label"
+                value={configItemForm.label}
+                onChange={(e) => setConfigItemForm({ ...configItemForm, label: e.target.value })}
+                placeholder="Enter item label"
               />
             </div>
             <div>
               <Label htmlFor="config-color">Color</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  id="config-color"
-                  value={configItemForm.color}
-                  onChange={(e) => setConfigItemForm({ ...configItemForm, color: e.target.value })}
-                  className="w-12 h-10 rounded border cursor-pointer"
-                />
-                <Input
-                  value={configItemForm.color}
-                  onChange={(e) => setConfigItemForm({ ...configItemForm, color: e.target.value })}
-                  placeholder="#3b82f6"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setShowConfigItemDialog(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={async () => {
-                  await handleCreateConfigItem(configItemForm.category, configItemForm.name, configItemForm.color)
-                  setShowConfigItemDialog(false)
-                  setConfigItemForm({ name: "", category: "", color: "#3b82f6" })
-                }}
+              <Select
+                value={configItemForm.color}
+                onValueChange={(value) => setConfigItemForm({ ...configItemForm, color: value })}
               >
-                Create
-              </Button>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select color" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gray">Gray</SelectItem>
+                  <SelectItem value="red">Red</SelectItem>
+                  <SelectItem value="orange">Orange</SelectItem>
+                  <SelectItem value="yellow">Yellow</SelectItem>
+                  <SelectItem value="green">Green</SelectItem>
+                  <SelectItem value="blue">Blue</SelectItem>
+                  <SelectItem value="purple">Purple</SelectItem>
+                  <SelectItem value="pink">Pink</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="config-active"
+                checked={configItemForm.isActive}
+                onCheckedChange={(checked) => setConfigItemForm({ ...configItemForm, isActive: checked })}
+              />
+              <Label htmlFor="config-active">Active</Label>
             </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfigModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveConfigItem}>{editingConfigItem ? "Update Item" : "Create Item"}</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
 }
-
-export default AdminPanel

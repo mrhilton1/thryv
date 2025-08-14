@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AuthProvider } from "@/contexts/auth-context"
 import { SupabaseDatabaseProvider, useSupabaseDatabase } from "@/contexts/supabase-database-context"
 import { AdminProvider } from "@/contexts/admin-context"
@@ -22,6 +22,7 @@ function AppContent() {
     achievements = [],
     users = [],
     configItems,
+    navigationConfig,
     refreshData,
     createInitiative,
     updateInitiative,
@@ -30,11 +31,40 @@ function AppContent() {
     deleteAchievement,
   } = useSupabaseDatabase()
 
-  const [activeTab, setActiveTab] = useState("dashboard")
+  const [activeTab, setActiveTab] = useState("")
   const [showInitiativeForm, setShowInitiativeForm] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [editingInitiative, setEditingInitiative] = useState<InitiativeWithRelations | undefined>()
   const [selectedInitiative, setSelectedInitiative] = useState<InitiativeWithRelations | null>(null)
+  const [initialFormData, setInitialFormData] = useState<any>(undefined) // Added state for initial form data
+
+  useEffect(() => {
+    if (!activeTab && navigationConfig && navigationConfig.length > 0) {
+      // Get the first visible navigation item, sorted by order
+      const firstNavItem = navigationConfig
+        .filter((item) => item.isVisible || item.is_visible)
+        .sort((a, b) => (a.sortOrder || a.sort_order || 0) - (b.sortOrder || b.sort_order || 0))[0]
+
+      if (firstNavItem) {
+        const itemName = firstNavItem.itemLabel || firstNavItem.item_label || firstNavItem.name || firstNavItem.label
+        const tabId = getTabIdFromNavItem(itemName)
+        setActiveTab(tabId)
+      } else {
+        setActiveTab("dashboard") // fallback
+      }
+    }
+  }, [activeTab, navigationConfig])
+
+  const getTabIdFromNavItem = (itemName: string) => {
+    const nameToTabMap: Record<string, string> = {
+      "Executive Summary": "summary",
+      Initiatives: "initiatives",
+      Calendar: "calendar",
+      Dashboard: "dashboard",
+      Admin: "admin",
+    }
+    return nameToTabMap[itemName] || itemName.toLowerCase().replace(/\s+/g, "-")
+  }
 
   const handleTabChange = (tab: string) => {
     console.log("Tab changing to:", tab)
@@ -52,19 +82,16 @@ function AppContent() {
     setShowDetailModal(true)
   }
 
-  const handleCreateInitiative = () => {
-    console.log("Create initiative clicked")
+  const handleCreateInitiative = (initialData?: any) => {
+    // Added optional initialData parameter
+    console.log("Create initiative clicked", initialData ? "with initial data" : "")
     setEditingInitiative(undefined)
     setShowInitiativeForm(true)
-  }
-
-  const handleDeleteInitiative = async (id: string) => {
-    try {
-      console.log("Deleting initiative with ID:", id)
-      await deleteInitiative(id)
-    } catch (error) {
-      console.error("Error deleting initiative:", error)
-      alert("Error deleting initiative. Please check the console for details.")
+    // Store initial data for the form
+    if (initialData) {
+      setInitialFormData(initialData) // Store initial data in state
+    } else {
+      setInitialFormData(undefined)
     }
   }
 
@@ -223,7 +250,7 @@ function AppContent() {
         return (
           <ExecutiveDashboard
             initiatives={initiatives}
-            onDeleteInitiative={handleDeleteInitiative}
+            onDeleteInitiative={handleDeleteAchievement}
             onUpdateInitiative={handleUpdateInitiative}
           />
         )
@@ -265,7 +292,7 @@ function AppContent() {
           </div>
         )
       default:
-        return <ExecutiveDashboard initiatives={initiatives} onDeleteInitiative={handleDeleteInitiative} />
+        return <ExecutiveDashboard initiatives={initiatives} onDeleteInitiative={handleDeleteAchievement} />
     }
   }
 
@@ -282,6 +309,7 @@ function AppContent() {
           users={users}
           config={configItems}
           onSave={handleSaveInitiative}
+          initialData={initialFormData} // Pass initial data to form
         />
 
         {/* Initiative Detail Modal */}

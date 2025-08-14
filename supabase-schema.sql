@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS initiatives (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title TEXT NOT NULL,
     description TEXT,
-    status TEXT NOT NULL CHECK (status IN ('on-track', 'at-risk', 'off-track', 'complete', 'cancelled')),
-    priority TEXT NOT NULL CHECK (priority IN ('low', 'medium', 'high', 'critical')),
+    status TEXT NOT NULL CHECK (status IN ('On Track', 'At Risk', 'Off Track', 'Complete', 'Cancelled', 'Paused', 'Blocked', 'Deprioritized')),
+    priority TEXT NOT NULL CHECK (priority IN ('Low', 'Medium', 'High', 'Critical')),
     tier INTEGER NOT NULL CHECK (tier IN (1, 2, 3)),
     progress INTEGER DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
     start_date DATE NOT NULL,
@@ -99,10 +99,10 @@ BEGIN
 
     -- Insert initiatives with proper foreign keys
     INSERT INTO initiatives (title, description, status, priority, tier, progress, start_date, end_date, owner_id, created_by_id) VALUES
-        ('Digital Transformation Initiative', 'Modernize our technology stack and processes', 'on-track', 'high', 1, 75, '2024-01-01'::date, '2024-12-31'::date, jane_id, john_id),
-        ('Customer Experience Enhancement', 'Improve customer satisfaction and retention', 'at-risk', 'critical', 1, 45, '2024-02-01'::date, '2024-08-31'::date, bob_id, jane_id),
-        ('Cost Optimization Program', 'Reduce operational costs by 15%', 'on-track', 'medium', 2, 60, '2024-03-01'::date, '2024-09-30'::date, alice_id, john_id),
-        ('Market Expansion Strategy', 'Enter new geographic markets', 'off-track', 'high', 1, 25, '2024-04-01'::date, '2024-11-30'::date, jane_id, bob_id)
+        ('Digital Transformation Initiative', 'Modernize our technology stack and processes', 'On Track', 'High', 1, 75, '2024-01-01'::date, '2024-12-31'::date, jane_id, john_id),
+        ('Customer Experience Enhancement', 'Improve customer satisfaction and retention', 'At Risk', 'Critical', 1, 45, '2024-02-01'::date, '2024-08-31'::date, bob_id, jane_id),
+        ('Cost Optimization Program', 'Reduce operational costs by 15%', 'On Track', 'Medium', 2, 60, '2024-03-01'::date, '2024-09-30'::date, alice_id, john_id),
+        ('Market Expansion Strategy', 'Enter new geographic markets', 'Off Track', 'High', 1, 25, '2024-04-01'::date, '2024-11-30'::date, jane_id, bob_id)
     ON CONFLICT DO NOTHING;
 
     -- Insert notes

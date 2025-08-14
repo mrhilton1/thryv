@@ -5,64 +5,24 @@ import type { InitiativeWithRelations } from "@/types"
 export class SupabaseDatabaseService {
   private supabase = createClient()
 
-  // Updated to use profiles table instead of users
+  // User methods
   async getUsers(): Promise<User[]> {
-    const { data, error } = await this.supabase.from("profiles").select("*").order("name")
+    console.log("=== DatabaseService.getUsers START ===")
+    try {
+      const { data, error } = await this.supabase.from("profiles").select("*").order("name")
 
-    if (error) throw error
-    return (data || []).map((user) => this.toCamelCase(user))
-  }
+      if (error) {
+        console.error("Error fetching users:", error)
+        throw error
+      }
 
-  async getNavigationConfig(): Promise<NavigationConfig[]> {
-    const { data, error } = await this.supabase.from("navigation_settings").select("*").order("sort_order")
-
-    if (error) throw error
-    return (data || []).map((config) => this.toCamelCase(config))
-  }
-
-  async getInitiatives(): Promise<InitiativeWithRelations[]> {
-    const { data, error } = await this.supabase
-      .from("initiatives")
-      .select(`
-        *,
-        owner:profiles!owner_id (
-          id,
-          name,
-          email,
-          avatar
-        )
-      `)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-    return (data || []).map((initiative) => this.toCamelCase(initiative))
-  }
-
-  async getAchievements(): Promise<Achievement[]> {
-    const { data, error } = await this.supabase
-      .from("achievements")
-      .select("*")
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-    return (data || []).map((achievement) => this.toCamelCase(achievement))
-  }
-
-  async getConfigItems(): Promise<ConfigItem[]> {
-    const { data, error } = await this.supabase.from("config_items").select("*").order("sort_order")
-
-    if (error) throw error
-    return (data || []).map((item) => this.toCamelCase(item))
-  }
-
-  async getAllConfigItems(): Promise<ConfigItem[]> {
-    return this.getConfigItems()
-  }
-
-  async getFieldConfigurations(): Promise<any[]> {
-    const { data, error } = await this.supabase.from("field_configurations").select("*").order("created_at")
-    if (error) throw error
-    return (data || []).map((item) => this.toCamelCase(item))
+      const users = (data || []).map((user) => this.toCamelCase(user))
+      console.log("Fetched users:", users.length)
+      return users
+    } catch (error) {
+      console.error("Error in getUsers:", error)
+      throw error
+    }
   }
 
   async updateUser(id: string, data: any): Promise<User> {
@@ -77,15 +37,322 @@ export class SupabaseDatabaseService {
     return this.toCamelCase(result)
   }
 
-  async createInitiative(data: any): Promise<Initiative> {
+  async createUser(data: any): Promise<User> {
     const { data: result, error } = await this.supabase
-      .from("initiatives")
+      .from("profiles")
       .insert([this.toSnakeCase(data)])
       .select()
       .single()
 
     if (error) throw error
     return this.toCamelCase(result)
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    const { data: ownedInitiatives, error: ownedError } = await this.supabase
+      .from("initiatives")
+      .select("id, title")
+      .eq("owner_id", id)
+
+    if (ownedError) throw ownedError
+
+    const { data: createdInitiatives, error: createdError } = await this.supabase
+      .from("initiatives")
+      .select("id, title")
+      .eq("created_by_id", id)
+
+    if (createdError) throw createdError
+
+    const allInitiatives = [
+      ...(ownedInitiatives || []),
+      ...(createdInitiatives || []).filter(
+        (created) => !(ownedInitiatives || []).some((owned) => owned.id === created.id),
+      ),
+    ]
+
+    if (allInitiatives.length > 0) {
+      const ownedCount = ownedInitiatives?.length || 0
+      const createdCount = createdInitiatives?.length || 0
+      let message = `Cannot delete user. They have ${allInitiatives.length} initiative(s) associated: ${allInitiatives.map((i) => i.title).join(", ")}.`
+
+      if (ownedCount > 0 && createdCount > 0) {
+        message += ` (${ownedCount} owned, ${createdCount} created)`
+      } else if (ownedCount > 0) {
+        message += ` (owned)`
+      } else {
+        message += ` (created)`
+      }
+
+      message += ` Please reassign these initiatives first.`
+      throw new Error(message)
+    }
+
+    const { error } = await this.supabase.from("profiles").delete().eq("id", id)
+    if (error) throw error
+  }
+
+  // Navigation methods
+  async getNavigationConfig(): Promise<NavigationConfig[]> {
+    console.log("=== DatabaseService.getNavigationConfig START ===")
+    try {
+      const { data, error } = await this.supabase.from("navigation_settings").select("*").order("sort_order")
+
+      if (error) {
+        console.error("Error fetching navigation config:", error)
+        throw error
+      }
+
+      const config = (data || []).map((config) => this.toCamelCase(config))
+      console.log("Fetched navigation config:", config.length)
+      return config
+    } catch (error) {
+      console.error("Error in getNavigationConfig:", error)
+      throw error
+    }
+  }
+
+  async createNavigationConfig(data: any): Promise<NavigationConfig> {
+    const { data: result, error } = await this.supabase
+      .from("navigation_settings")
+      .insert([this.toSnakeCase(data)])
+      .select()
+      .single()
+
+    if (error) throw error
+    return this.toCamelCase(result)
+  }
+
+  async updateNavigationConfig(id: string, data: any): Promise<NavigationConfig> {
+    const { data: result, error } = await this.supabase
+      .from("navigation_settings")
+      .update(this.toSnakeCase(data))
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return this.toCamelCase(result)
+  }
+
+  async deleteNavigationConfig(id: string): Promise<void> {
+    const { error } = await this.supabase.from("navigation_settings").delete().eq("id", id)
+    if (error) throw error
+  }
+
+  async reorderNavigationConfig(items: { id: string; sortOrder: number }[]): Promise<void> {
+    for (const item of items) {
+      const { error } = await this.supabase
+        .from("navigation_settings")
+        .update({ sort_order: item.sortOrder })
+        .eq("id", item.id)
+
+      if (error) throw error
+    }
+  }
+
+  // Initiative methods
+  async getInitiatives(): Promise<InitiativeWithRelations[]> {
+    console.log("=== DatabaseService.getInitiatives START ===")
+    try {
+      const { data, error } = await this.supabase
+        .from("initiatives")
+        .select(`
+          *,
+          owner:profiles!owner_id (
+            id,
+            name,
+            email,
+            avatar
+          )
+        `)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Error fetching initiatives:", error)
+        throw error
+      }
+
+      const initiatives = (data || []).map((initiative) => this.toCamelCase(initiative))
+      console.log("Fetched initiatives:", initiatives.length)
+      return initiatives
+    } catch (error) {
+      console.error("Error in getInitiatives:", error)
+      throw error
+    }
+  }
+
+  async getInitiativesByOwner(ownerId: string): Promise<Initiative[]> {
+    const { data, error } = await this.supabase
+      .from("initiatives")
+      .select("id, title, description")
+      .eq("owner_id", ownerId)
+
+    if (error) throw error
+    return (data || []).map((initiative) => this.toCamelCase(initiative))
+  }
+
+  async getInitiativesByCreator(creatorId: string): Promise<Initiative[]> {
+    const { data, error } = await this.supabase
+      .from("initiatives")
+      .select("id, title, description")
+      .eq("created_by_id", creatorId)
+
+    if (error) throw error
+    return (data || []).map((initiative) => this.toCamelCase(initiative))
+  }
+
+  async createInitiative(data: any): Promise<Initiative> {
+    console.log("=== DatabaseService.createInitiative START ===")
+    console.log("Creating initiative with data:", data)
+
+    try {
+      // Validate required fields
+      if (!data.title?.trim()) {
+        throw new Error("Initiative title is required")
+      }
+
+      // Get fallback user ID if needed
+      let ownerId = data.ownerId || data.owner_id
+      let createdById = data.createdById || data.created_by_id || data.lastUpdatedById
+
+      if (!ownerId || !createdById) {
+        console.log("Missing required user IDs, getting first available user...")
+        const { data: users, error: usersError } = await this.supabase.from("profiles").select("id").limit(1)
+
+        if (usersError) {
+          console.error("Error fetching users for fallback:", usersError)
+          throw new Error("Missing required user IDs and unable to find fallback user")
+        }
+
+        if (!users || users.length === 0) {
+          console.log("No users found, creating default user...")
+          const { data: newUser, error: createError } = await this.supabase
+            .from("profiles")
+            .insert({
+              name: "Default User",
+              email: "default@example.com",
+              role: "admin",
+            })
+            .select("id")
+            .single()
+
+          if (createError) {
+            console.error("Error creating default user:", createError)
+            throw new Error("Failed to create default user")
+          }
+
+          const fallbackUserId = newUser.id
+          console.log("Created default user with ID:", fallbackUserId)
+          if (!ownerId) ownerId = fallbackUserId
+          if (!createdById) createdById = fallbackUserId
+        } else {
+          const fallbackUserId = users[0].id
+          console.log("Using existing user ID:", fallbackUserId)
+          if (!ownerId) ownerId = fallbackUserId
+          if (!createdById) createdById = fallbackUserId
+        }
+      }
+
+      // Validate and set status
+      const validStatuses = [
+        "On Track",
+        "At Risk",
+        "Off Track",
+        "Complete",
+        "Cancelled",
+        "Paused",
+        "Blocked",
+        "Deprioritized",
+      ]
+
+      const status = data.status || "On Track"
+      if (!validStatuses.includes(status)) {
+        console.warn(`Invalid status "${status}", defaulting to "On Track"`)
+        data.status = "On Track"
+      }
+
+      // Validate and set priority
+      const validPriorities = ["Low", "Medium", "High", "Critical"]
+      const priority = data.priority || "Medium"
+      if (!validPriorities.includes(priority)) {
+        console.warn(`Invalid priority "${priority}", defaulting to "Medium"`)
+        data.priority = "Medium"
+      }
+
+      // Prepare data for insertion
+      const insertData = {
+        title: data.title.trim(),
+        description: data.description?.trim() || null,
+        goal: data.goal?.trim() || null,
+        product_area: data.productArea?.trim() || "General",
+        owner_id: ownerId,
+        created_by_id: createdById,
+        team: data.team?.trim() || "Unassigned",
+        tier: Number(data.tier) || 1,
+        status: status,
+        process_stage: data.processStage?.trim() || "Planning",
+        priority: priority,
+        business_impact: data.businessImpact?.trim() || "Increase Revenue",
+        start_date: data.startDate || new Date().toISOString().split("T")[0],
+        estimated_release_date: data.estimatedReleaseDate || null,
+        actual_release_date: data.actualReleaseDate || null,
+        estimated_gtm_type: data.estimatedGtmType || null,
+        progress: Number(data.progress) || 0,
+        tags: Array.isArray(data.tags) ? data.tags : [],
+        executive_update: data.executiveUpdate?.trim() || null,
+        reason_if_not_on_track: data.reasonIfNotOnTrack?.trim() || null,
+        show_on_executive_summary: Boolean(data.showOnExecutiveSummary),
+        last_updated_by_id: createdById,
+      }
+
+      console.log("Final data for database insertion:", insertData)
+
+      const { data: result, error } = await this.supabase
+        .from("initiatives")
+        .insert([insertData])
+        .select(`
+          *,
+          owner:profiles!owner_id (
+            id,
+            name,
+            email,
+            avatar
+          )
+        `)
+        .single()
+
+      if (error) {
+        console.error("Database error creating initiative:", error)
+        console.error("Error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+
+        // Provide specific error messages
+        if (error.code === "23514" && error.message.includes("status")) {
+          throw new Error(
+            `Status constraint violation: "${status}" is not allowed. Please run the database migration script to update the status constraint. Valid values are: ${validStatuses.join(", ")}`,
+          )
+        }
+
+        if (error.code === "23502") {
+          const match = error.message.match(/column "([^"]+)"/)
+          const columnName = match ? match[1] : "unknown"
+          throw new Error(`Required field "${columnName}" is missing`)
+        }
+
+        throw error
+      }
+
+      console.log("Successfully created initiative:", result)
+      console.log("=== DatabaseService.createInitiative END ===")
+      return this.toCamelCase(result)
+    } catch (error) {
+      console.error("Error in createInitiative:", error)
+      throw error
+    }
   }
 
   async updateInitiative(id: string, data: any): Promise<Initiative> {
@@ -102,8 +369,30 @@ export class SupabaseDatabaseService {
 
   async deleteInitiative(id: string): Promise<void> {
     const { error } = await this.supabase.from("initiatives").delete().eq("id", id)
-
     if (error) throw error
+  }
+
+  // Achievement methods
+  async getAchievements(): Promise<Achievement[]> {
+    console.log("=== DatabaseService.getAchievements START ===")
+    try {
+      const { data, error } = await this.supabase
+        .from("achievements")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Error fetching achievements:", error)
+        throw error
+      }
+
+      const achievements = (data || []).map((achievement) => this.toCamelCase(achievement))
+      console.log("Fetched achievements:", achievements.length)
+      return achievements
+    } catch (error) {
+      console.error("Error in getAchievements:", error)
+      throw error
+    }
   }
 
   async createAchievement(data: any): Promise<Achievement> {
@@ -189,47 +478,31 @@ export class SupabaseDatabaseService {
 
   async deleteAchievement(id: string): Promise<void> {
     const { error } = await this.supabase.from("achievements").delete().eq("id", id)
-
     if (error) throw error
   }
 
-  async createNavigationConfig(data: any): Promise<NavigationConfig> {
-    const { data: result, error } = await this.supabase
-      .from("navigation_settings")
-      .insert([this.toSnakeCase(data)])
-      .select()
-      .single()
+  // Config item methods
+  async getConfigItems(): Promise<ConfigItem[]> {
+    console.log("=== DatabaseService.getConfigItems START ===")
+    try {
+      const { data, error } = await this.supabase.from("config_items").select("*").order("sort_order")
 
-    if (error) throw error
-    return this.toCamelCase(result)
-  }
+      if (error) {
+        console.error("Error fetching config items:", error)
+        throw error
+      }
 
-  async updateNavigationConfig(id: string, data: any): Promise<NavigationConfig> {
-    const { data: result, error } = await this.supabase
-      .from("navigation_settings")
-      .update(this.toSnakeCase(data))
-      .eq("id", id)
-      .select()
-      .single()
-
-    if (error) throw error
-    return this.toCamelCase(result)
-  }
-
-  async deleteNavigationConfig(id: string): Promise<void> {
-    const { error } = await this.supabase.from("navigation_settings").delete().eq("id", id)
-    if (error) throw error
-  }
-
-  async reorderNavigationConfig(items: { id: string; orderIndex: number }[]): Promise<void> {
-    for (const item of items) {
-      const { error } = await this.supabase
-        .from("navigation_settings")
-        .update({ sort_order: item.orderIndex })
-        .eq("id", item.id)
-
-      if (error) throw error
+      const items = (data || []).map((item) => this.toCamelCase(item))
+      console.log("Fetched config items:", items.length)
+      return items
+    } catch (error) {
+      console.error("Error in getConfigItems:", error)
+      throw error
     }
+  }
+
+  async getAllConfigItems(): Promise<ConfigItem[]> {
+    return this.getConfigItems()
   }
 
   async createConfigItem(data: any): Promise<ConfigItem> {
@@ -260,7 +533,7 @@ export class SupabaseDatabaseService {
     if (error) throw error
   }
 
-  async reorderConfigItems(items: { id: string; sortOrder: number }[]): Promise<void> {
+  async reorderConfigItems(category: string, items: { id: string; sortOrder: number }[]): Promise<void> {
     for (const item of items) {
       const { error } = await this.supabase
         .from("config_items")
@@ -268,6 +541,26 @@ export class SupabaseDatabaseService {
         .eq("id", item.id)
 
       if (error) throw error
+    }
+  }
+
+  // Field configuration methods
+  async getFieldConfigurations(): Promise<any[]> {
+    console.log("=== DatabaseService.getFieldConfigurations START ===")
+    try {
+      const { data, error } = await this.supabase.from("field_configurations").select("*").order("created_at")
+
+      if (error) {
+        console.error("Error fetching field configurations:", error)
+        throw error
+      }
+
+      const configs = (data || []).map((item) => this.toCamelCase(item))
+      console.log("Fetched field configurations:", configs.length)
+      return configs
+    } catch (error) {
+      console.error("Error in getFieldConfigurations:", error)
+      throw error
     }
   }
 
@@ -286,11 +579,84 @@ export class SupabaseDatabaseService {
   async reorderFieldConfigurations(items: { id: string; order: number }[]): Promise<void> {
     for (const item of items) {
       const { error } = await this.supabase.from("field_configurations").update({ order: item.order }).eq("id", item.id)
-
       if (error) throw error
     }
   }
 
+  // Field mapping methods
+  async getFieldMappings(): Promise<any[]> {
+    const { data, error } = await this.supabase
+      .from("field_mappings")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return (data || []).map((mapping) => this.toCamelCase(mapping))
+  }
+
+  async createFieldMapping(data: any): Promise<any> {
+    const { data: result, error } = await this.supabase
+      .from("field_mappings")
+      .insert([this.toSnakeCase(data)])
+      .select()
+      .single()
+
+    if (error) throw error
+    return this.toCamelCase(result)
+  }
+
+  async updateFieldMapping(id: string, data: any): Promise<any> {
+    const { data: result, error } = await this.supabase
+      .from("field_mappings")
+      .update(this.toSnakeCase(data))
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return this.toCamelCase(result)
+  }
+
+  async deleteFieldMapping(id: string): Promise<void> {
+    const { error } = await this.supabase.from("field_mappings").delete().eq("id", id)
+    if (error) throw error
+  }
+
+  async upsertFieldMappings(mappings: any[]): Promise<any[]> {
+    const mappingData = mappings.map((mapping) => this.toSnakeCase(mapping))
+
+    const { data, error } = await this.supabase
+      .from("field_mappings")
+      .upsert(mappingData, {
+        onConflict: "field_name,source_value",
+        ignoreDuplicates: false,
+      })
+      .select()
+
+    if (error) throw error
+    return (data || []).map((item) => this.toCamelCase(item))
+  }
+
+  // Utility methods
+  async transferInitiativeRelationships(fromUserId: string, toUserId: string): Promise<void> {
+    // Transfer ownership
+    const { error: ownerError } = await this.supabase
+      .from("initiatives")
+      .update({ owner_id: toUserId })
+      .eq("owner_id", fromUserId)
+
+    if (ownerError) throw ownerError
+
+    // Transfer creation relationship
+    const { error: creatorError } = await this.supabase
+      .from("initiatives")
+      .update({ created_by_id: toUserId })
+      .eq("created_by_id", fromUserId)
+
+    if (creatorError) throw creatorError
+  }
+
+  // Helper methods for case conversion
   private toCamelCase(obj: any): any {
     if (obj === null || obj === undefined) return obj
     if (typeof obj !== "object") return obj

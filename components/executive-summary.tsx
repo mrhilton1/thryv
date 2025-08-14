@@ -241,6 +241,37 @@ export function ExecutiveSummaryComponent({
     }
   }
 
+  const getReasonText = (initiative: Initiative): string => {
+    console.log("🔍 Getting reason text for initiative:", initiative.id)
+    console.log("🔍 Initiative object keys:", Object.keys(initiative))
+    console.log("🔍 Full initiative object:", initiative)
+
+    // Try multiple possible field names for the reason
+    const possibleFields = [
+      "reasonIfNotOnTrack",
+      "reasonNotOnTrack",
+      "reason_if_not_on_track",
+      "reason_not_on_track",
+      "reasonIfNotOntrack",
+      "reasonNotOntrack",
+      "Reason if not on track", // Exact field name from form
+      "reasonwhywearenotOntrack",
+      "reasonwhywearenotOnTrack",
+    ]
+
+    for (const field of possibleFields) {
+      const value = (initiative as any)[field]
+      console.log(`🔍 Checking field "${field}":`, value)
+      if (value && typeof value === "string" && value.trim() !== "") {
+        console.log(`✅ Found reason text in field "${field}":`, value)
+        return value.trim()
+      }
+    }
+
+    console.log("❌ No reason text found in any field")
+    return "No reason provided yet."
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -468,9 +499,7 @@ export function ExecutiveSummaryComponent({
                                 <p className="text-sm opacity-80 mt-1 mb-2">{initiative.description}</p>
                                 <div className="text-sm">
                                   <span className="font-medium">Update:</span>
-                                  <p className="mt-1 text-muted-foreground">
-                                    {initiative.executiveUpdate || "No update provided yet."}
-                                  </p>
+                                  <p className="mt-1 text-muted-foreground">{getReasonText(initiative)}</p>
                                 </div>
                               </div>
                             </div>

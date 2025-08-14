@@ -35,6 +35,7 @@ function AppContent() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [editingInitiative, setEditingInitiative] = useState<InitiativeWithRelations | undefined>()
   const [selectedInitiative, setSelectedInitiative] = useState<InitiativeWithRelations | null>(null)
+  const [initialFormData, setInitialFormData] = useState<any>(undefined) // Added state for initial form data
 
   const filteredAchievements = useMemo(() => achievements.filter((a) => a.type === "achievement"), [achievements])
   const filteredMilestones = useMemo(() => achievements.filter((a) => a.type === "milestone"), [achievements])
@@ -49,9 +50,16 @@ function AppContent() {
     setShowDetailModal(true)
   }
 
-  const handleCreateInitiative = () => {
+  const handleCreateInitiative = (initialData?: any) => {
+    // Added optional initialData parameter
     setEditingInitiative(undefined)
     setShowInitiativeForm(true)
+    // Store initial data for the form
+    if (initialData) {
+      setInitialFormData(initialData) // Store initial data in state
+    } else {
+      setInitialFormData(undefined)
+    }
   }
 
   const handleDeleteInitiative = (id: string) => {
@@ -264,6 +272,7 @@ function AppContent() {
               initiative={editingInitiative}
               users={users}
               onSave={handleSaveInitiative}
+              initialData={initialFormData} // Pass initial data to form
             />
           </>
         )

@@ -54,9 +54,10 @@ export function DashboardLayout({ children, activeTab, onTabChange, onUpdateUser
       setOptimisticNavigation(event.detail)
     }
 
-    const handleNavigationUpdate = () => {
-      console.log("Navigation updated event received, refreshing data in background...")
-      if (optimisticNavigation.length === 0) {
+    const handleNavigationUpdate = (event: any) => {
+      console.log("Navigation updated event received:", event.detail)
+      if (!event.detail || event.detail.type !== "reorder" || !event.detail.success) {
+        console.log("Refreshing navigation data from database...")
         if (loadData) {
           loadData()
         }
@@ -70,7 +71,7 @@ export function DashboardLayout({ children, activeTab, onTabChange, onUpdateUser
       window.removeEventListener("optimisticNavigationUpdate", handleOptimisticNavigationUpdate)
       window.removeEventListener("navigationUpdated", handleNavigationUpdate)
     }
-  }, [loadData, optimisticNavigation.length])
+  }, [loadData])
 
   console.log("=== ENHANCED NAVIGATION DEBUG ===")
   console.log("Raw navigationConfig from database:", navigationConfig)
@@ -149,43 +150,26 @@ export function DashboardLayout({ children, activeTab, onTabChange, onUpdateUser
 
     console.log("Processing navigation config...", optimisticNavigation.length > 0 ? "(optimistic)" : "(database)")
 
-    // Process navigation config and remove duplicates
     const processedItems = sourceData
       .filter((item) => {
-        const hasValidName = item && (item.itemLabel || item.name || item.label)
+        const hasValidName = item && (item.itemLabel || item.item_label || item.name || item.label)
         const isVisible = item.isVisible === true || item.is_visible === true
-        const isValid = hasValidName && isVisible
-        console.log(`Filtering item:`, {
-          item,
-          hasValidName,
-          isVisible,
-          isValid,
-          itemLabel: item.itemLabel,
-          isVisible: item.isVisible,
-          is_visible: item.is_visible,
-        })
-        return isValid
+        return hasValidName && isVisible
       })
-      .map((item) => {
-        const itemName = item.itemLabel || item.name || item.label
-        console.log(`Processing item name: "${itemName}" from:`, {
-          itemLabel: item.itemLabel,
-          name: item.name,
-          label: item.label,
-        })
-
-        // Skip items without valid names
-        if (!itemName || itemName.trim() === "" || itemName === "Unnamed Item") {
-          console.log("Skipping item with invalid name:", itemName)
-          return null
-        }
+      .sort((a, b) => {
+        const orderA = a.sortOrder || a.sort_order || 0
+        const orderB = b.sortOrder || b.sort_order || 0
+        return orderA - orderB
+      })
+      .map((item, index) => {
+        const itemName = item.itemLabel || item.item_label || item.name || item.label
 
         const processedItem = {
           id: getTabIdFromNavItem(item),
           name: itemName,
           icon: item.icon || getDefaultIconForItem(itemName),
           isVisible: item.isVisible === true || item.is_visible === true,
-          order: item.sortOrder || item.order || item.orderIndex || 0,
+          order: item.sortOrder || item.sort_order || index,
           route: item.route,
         }
 
@@ -193,25 +177,10 @@ export function DashboardLayout({ children, activeTab, onTabChange, onUpdateUser
         return processedItem
       })
       .filter(Boolean) // Remove null items
-      .sort((a, b) => (a?.order || 0) - (b?.order || 0))
 
-    console.log("Processed items before deduplication:", processedItems)
+    console.log("Processed items (sorted by order):", processedItems)
 
-    // Remove duplicates by ID and name
-    const uniqueItems = processedItems.reduce((acc, item) => {
-      if (item && !acc.find((existing) => existing.id === item.id || existing.name === item.name)) {
-        acc.push(item)
-      } else if (item) {
-        console.log("Removing duplicate item:", item)
-      }
-      return acc
-    }, [] as any[])
-
-    console.log("Final unique items:", uniqueItems)
-    console.log("Decision: Using", uniqueItems.length > 0 ? "database items" : "default items")
-
-    // If we have valid processed items, use them, otherwise fall back to defaults
-    const finalItems = uniqueItems.length > 0 ? uniqueItems : defaultNavItems
+    const finalItems = processedItems.length > 0 ? processedItems : defaultNavItems
     console.log("Final navigation items:", finalItems)
     return finalItems
   })()
