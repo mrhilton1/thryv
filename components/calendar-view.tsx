@@ -19,7 +19,7 @@ import {
   isToday,
   parseISO,
 } from "date-fns"
-import { useSupabaseDatabase } from "@/contexts/supabase-database-context"
+import { useSupabaseDatabase } from "@/contexts/api-database-context"
 
 interface CalendarEvent {
   id: string

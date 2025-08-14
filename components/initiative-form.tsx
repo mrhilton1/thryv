@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { FileText, Target, CalendarIcon, Settings, ChevronDown, ChevronRight, X, Plus, Clock } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { useSupabaseDatabase } from "@/contexts/supabase-database-context"
+import { useSupabaseDatabase } from "@/contexts/api-database-context"
 import { useAuth } from "@/contexts/auth-context"
 
 interface InitiativeFormProps {

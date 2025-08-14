@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { SupabaseDatabaseProvider, useSupabaseDatabase } from "@/contexts/supabase-database-context"
+import { SupabaseDatabaseProvider, useSupabaseDatabase } from "@/contexts/api-database-context"
 import { AdminProvider } from "@/contexts/admin-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ExecutiveDashboard } from "@/components/executive-dashboard"

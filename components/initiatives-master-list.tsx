@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { useSupabaseDatabase } from "@/contexts/supabase-database-context"
+import { useSupabaseDatabase } from "@/contexts/api-database-context"
 import { useAdmin } from "@/contexts/admin-context"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"

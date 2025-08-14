@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AlertTriangle, CheckCircle, Clock, Target, Trash2, Flag } from "lucide-react"
 import { StakeholderUpdateModal } from "./stakeholder-update-modal"
-import { useSupabaseDatabase } from "@/contexts/supabase-database-context"
+import { useSupabaseDatabase } from "@/contexts/api-database-context"
 import type { InitiativeWithRelations } from "@/lib/database/schemas"
 
 interface ExecutiveDashboardProps {
