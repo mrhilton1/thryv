@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { useSupabaseDatabase } from "@/contexts/supabase-database-context"
+import { useSupabaseDatabase } from "@/contexts/api-database-context"
 import type { Initiative, ExecutiveSummary, Achievement } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"

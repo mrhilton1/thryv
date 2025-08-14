@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSupabaseDatabase } from "@/contexts/supabase-database-context"
+import { useSupabaseDatabase } from "@/contexts/api-database-context"
 import { useAdmin } from "@/contexts/admin-context"
 import { InitiativeForm } from "@/components/initiative-form"
 import { FieldMappingDialog } from "@/components/field-mapping-dialog"
