@@ -15,15 +15,19 @@ CREATE TABLE IF NOT EXISTS field_mappings (
 ALTER TABLE field_mappings ENABLE ROW LEVEL SECURITY;
 
 -- Create policies
+DROP POLICY IF EXISTS "Users can view all field mappings" ON field_mappings;
 CREATE POLICY "Users can view all field mappings" ON field_mappings
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Users can insert field mappings" ON field_mappings;
 CREATE POLICY "Users can insert field mappings" ON field_mappings
     FOR INSERT WITH CHECK (auth.uid() = created_by_id);
 
+DROP POLICY IF EXISTS "Users can update their own field mappings" ON field_mappings;
 CREATE POLICY "Users can update their own field mappings" ON field_mappings
     FOR UPDATE USING (auth.uid() = created_by_id);
 
+DROP POLICY IF EXISTS "Users can delete their own field mappings" ON field_mappings;
 CREATE POLICY "Users can delete their own field mappings" ON field_mappings
     FOR DELETE USING (auth.uid() = created_by_id);
 
