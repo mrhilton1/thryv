@@ -34,8 +34,7 @@ import {
   Palette,
 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-// Fixed import path to use correct database service location
-import { databaseService } from "@/lib/supabase/database-service"
+import { getDatabaseService } from "@/lib/supabase/database-service"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DatabaseConnectionTest } from "@/components/database-connection-test"
 
@@ -135,8 +134,8 @@ export function AdminPanel() {
   const handleDeleteUser = async (user: User) => {
     try {
       const [ownedInitiatives, createdInitiatives] = await Promise.all([
-        databaseService.getInitiativesByOwner(user.id),
-        databaseService.getInitiativesByCreator(user.id),
+        getDatabaseService().getInitiativesByOwner(user.id),
+        getDatabaseService().getInitiativesByCreator(user.id),
       ])
 
       const allInitiatives = [...ownedInitiatives, ...createdInitiatives]
@@ -169,7 +168,7 @@ export function AdminPanel() {
 
     try {
       if (userOwnedInitiatives.length > 0 && transferToUserId) {
-        await databaseService.transferInitiativeRelationships(deleteUserToConfirm.id, transferToUserId)
+        await getDatabaseService().transferInitiativeRelationships(deleteUserToConfirm.id, transferToUserId)
       }
 
       await deleteUser(deleteUserToConfirm.id)

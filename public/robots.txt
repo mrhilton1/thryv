@@ -1,0 +1,6 @@
+User-agent: *
+Disallow:
+
+# In production you may change to allow only specific paths
+# or disallow preview routes.
+

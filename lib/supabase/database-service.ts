@@ -1,9 +1,24 @@
-import { createClient } from "./client"
+import { createBrowserClient } from "@supabase/ssr"
 import type { User, Initiative, Achievement, ConfigItem, NavigationConfig } from "@/lib/database/schemas"
 import type { InitiativeWithRelations } from "@/types"
 
 export class SupabaseDatabaseService {
-  private supabase = createClient()
+  private _supabase: ReturnType<typeof createBrowserClient> | null = null
+
+  // Lazily initialize the Supabase client in the browser only
+  private get supabase() {
+    if (this._supabase) return this._supabase
+    if (typeof window === "undefined") {
+      throw new Error("Supabase client is not available during SSR/build")
+    }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (!url || !anon) {
+      throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    }
+    this._supabase = createBrowserClient(url, anon)
+    return this._supabase
+  }
 
   // User methods
   async getUsers(): Promise<User[]> {
@@ -688,4 +703,18 @@ export class SupabaseDatabaseService {
   }
 }
 
-export const databaseService = new SupabaseDatabaseService()
+let browserSingleton: SupabaseDatabaseService | null = null
+export function getDatabaseService(): SupabaseDatabaseService {
+  if (typeof window === "undefined") {
+    // Return a stub that throws if used during SSR
+    return new Proxy({}, {
+      get() {
+        return () => {
+          throw new Error("Database service cannot be used during SSR")
+        }
+      },
+    }) as unknown as SupabaseDatabaseService
+  }
+  if (!browserSingleton) browserSingleton = new SupabaseDatabaseService()
+  return browserSingleton
+}
