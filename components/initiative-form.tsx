@@ -219,8 +219,14 @@ export function InitiativeForm({
 
   // Reset form when modal opens/closes or initiative changes
   useEffect(() => {
+    console.log("🔧 InitiativeForm useEffect triggered")
+    console.log("🔧 open:", open)
+    console.log("🔧 initiative:", initiative)
+    console.log("🔧 initialData:", initialData)
+
     if (open) {
       if (initiative) {
+        console.log("🔧 Edit mode - populating with existing data")
         // Edit mode - populate with existing data
         setFormData({
           title: initiative.title || "",
@@ -244,10 +250,9 @@ export function InitiativeForm({
           reasonIfNotOnTrack: initiative.reasonIfNotOnTrack || "",
           showOnExecutiveSummary: initiative.showOnExecutiveSummary || false,
         })
+        console.log("🔧 Form data set for editing")
       } else if (initialData) {
-        console.log("=== SETTING FORM DATA FROM INITIAL DATA ===")
-        console.log("Initial data:", initialData)
-
+        console.log("🔧 Create mode with initial data")
         // Parse dates intelligently
         const startDate = parseSmartDate(initialData.startDate)
         const estimatedReleaseDate = parseSmartDate(initialData.estimatedReleaseDate)
@@ -284,6 +289,7 @@ export function InitiativeForm({
           estimatedGTMType: initialData.estimatedGTMType || initialData.estimatedGtmType || "Soft Launch",
         })
       } else {
+        console.log("🔧 Create mode - using defaults")
         // Create mode - reset to defaults with field configuration defaults
         const defaultFormData = {
           title: getFieldDefault("title") || "",

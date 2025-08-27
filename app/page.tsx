@@ -72,9 +72,18 @@ function AppContent() {
   }
 
   const handleEditInitiative = (initiative: InitiativeWithRelations) => {
-    console.log("Edit initiative clicked:", initiative.title)
+    console.log("🔧 Edit initiative clicked:", initiative.title)
+    console.log("🔧 Initiative data:", initiative)
+
+    // Clear any existing state first
+    setSelectedInitiative(null)
+    setShowDetailModal(false)
+
+    // Set the initiative to edit and open the form
     setEditingInitiative(initiative)
     setShowInitiativeForm(true)
+
+    console.log("🔧 Form should now be open with initiative:", initiative.id)
   }
 
   const handleRowClick = (initiative: InitiativeWithRelations) => {
@@ -255,6 +264,8 @@ function AppContent() {
           />
         )
       case "initiatives":
+        console.log("🔧 Rendering initiatives tab")
+        console.log("🔧 handleEditInitiative function:", !!handleEditInitiative)
         return (
           <InitiativesMasterList
             onEdit={handleEditInitiative}
@@ -309,7 +320,7 @@ function AppContent() {
           users={users}
           config={configItems}
           onSave={handleSaveInitiative}
-          initialData={initialFormData} // Pass initial data to form
+          initialData={undefined} // Clear this when editing
         />
 
         {/* Initiative Detail Modal */}

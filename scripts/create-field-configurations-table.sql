@@ -51,7 +51,6 @@ INSERT INTO field_configurations (field_name, form_type, section_name, display_l
 ON CONFLICT (field_name, form_type) DO NOTHING;
 
 -- Create trigger for automatic timestamp updates
-DROP TRIGGER IF EXISTS update_field_configurations_updated_at ON field_configurations;
 CREATE TRIGGER update_field_configurations_updated_at 
     BEFORE UPDATE ON field_configurations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -60,5 +59,4 @@ CREATE TRIGGER update_field_configurations_updated_at
 ALTER TABLE field_configurations ENABLE ROW LEVEL SECURITY;
 
 -- Create policy (allow all for now - you can restrict later)
-DROP POLICY IF EXISTS "Allow all operations" ON field_configurations;
 CREATE POLICY "Allow all operations" ON field_configurations FOR ALL USING (true);

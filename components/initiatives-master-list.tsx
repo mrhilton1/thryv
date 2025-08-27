@@ -997,8 +997,9 @@ Please ensure your data follows the expected column order.`)
       {/* Initiatives List */}
       <InitiativesList
         initiatives={filteredInitiatives}
-        onViewDetails={handleViewDetails}
-        onEditInitiative={onEdit}
+        onView={handleViewDetails}
+        onEdit={onEdit}
+        onDelete={onUpdateInitiative}
         onUpdateInitiative={onUpdateInitiative}
       />
 

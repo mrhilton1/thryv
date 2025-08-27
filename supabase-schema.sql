@@ -91,130 +91,55 @@ DECLARE
     jane_id UUID;
     bob_id UUID;
     alice_id UUID;
-    fallback_profile_id UUID;
 BEGIN
     SELECT id INTO john_id FROM users WHERE email = 'john@example.com';
     SELECT id INTO jane_id FROM users WHERE email = 'jane@example.com';
     SELECT id INTO bob_id FROM users WHERE email = 'bob@example.com';
     SELECT id INTO alice_id FROM users WHERE email = 'alice@example.com';
 
-    -- Fallback: if this project is using profiles as FK targets (common with Supabase Auth),
-    -- pick any existing profile id for sample rows when user ids are missing
-    SELECT id INTO fallback_profile_id FROM profiles LIMIT 1;
+    -- Insert initiatives with proper foreign keys
+    INSERT INTO initiatives (title, description, status, priority, tier, progress, start_date, end_date, owner_id, created_by_id) VALUES
+        ('Digital Transformation Initiative', 'Modernize our technology stack and processes', 'On Track', 'High', 1, 75, '2024-01-01'::date, '2024-12-31'::date, jane_id, john_id),
+        ('Customer Experience Enhancement', 'Improve customer satisfaction and retention', 'At Risk', 'Critical', 1, 45, '2024-02-01'::date, '2024-08-31'::date, bob_id, jane_id),
+        ('Cost Optimization Program', 'Reduce operational costs by 15%', 'On Track', 'Medium', 2, 60, '2024-03-01'::date, '2024-09-30'::date, alice_id, john_id),
+        ('Market Expansion Strategy', 'Enter new geographic markets', 'Off Track', 'High', 1, 25, '2024-04-01'::date, '2024-11-30'::date, jane_id, bob_id)
+    ON CONFLICT DO NOTHING;
 
-    -- Insert initiatives with proper foreign keys (skip if FKs incompatible)
-    BEGIN
-      INSERT INTO initiatives (title, description, status, priority, tier, progress, start_date, end_date, owner_id, created_by_id) VALUES
-        (
-          'Digital Transformation Initiative',
-          'Modernize our technology stack and processes',
-          'On Track',
-          'High',
-          1,
-          75,
-          '2024-01-01'::date,
-          '2024-12-31'::date,
-          COALESCE(jane_id, fallback_profile_id),
-          COALESCE(john_id, fallback_profile_id)
-        ),
-        (
-          'Customer Experience Enhancement',
-          'Improve customer satisfaction and retention',
-          'At Risk',
-          'Critical',
-          1,
-          45,
-          '2024-02-01'::date,
-          '2024-08-31'::date,
-          COALESCE(bob_id, fallback_profile_id),
-          COALESCE(jane_id, fallback_profile_id)
-        ),
-        (
-          'Cost Optimization Program',
-          'Reduce operational costs by 15%',
-          'On Track',
-          'Medium',
-          2,
-          60,
-          '2024-03-01'::date,
-          '2024-09-30'::date,
-          COALESCE(alice_id, fallback_profile_id),
-          COALESCE(john_id, fallback_profile_id)
-        ),
-        (
-          'Market Expansion Strategy',
-          'Enter new geographic markets',
-          'Off Track',
-          'High',
-          1,
-          25,
-          '2024-04-01'::date,
-          '2024-11-30'::date,
-          COALESCE(jane_id, fallback_profile_id),
-          COALESCE(bob_id, fallback_profile_id)
-        )
-      ON CONFLICT DO NOTHING;
-    EXCEPTION WHEN foreign_key_violation THEN
-      RAISE NOTICE 'Skipping initiatives sample insert due to FK mismatch';
-    END;
-
-    -- Insert notes (skip if FKs incompatible)
-    BEGIN
-      INSERT INTO notes (initiative_id, content, created_by_id) 
-      SELECT i.id, 'Initial planning phase completed successfully', COALESCE(john_id, fallback_profile_id)
-      FROM initiatives i WHERE i.title = 'Digital Transformation Initiative'
-      UNION ALL
-      SELECT i.id, 'Customer feedback survey launched', COALESCE(jane_id, fallback_profile_id)
-      FROM initiatives i WHERE i.title = 'Customer Experience Enhancement'
-      UNION ALL
-      SELECT i.id, 'Budget approval received from finance team', COALESCE(bob_id, fallback_profile_id)
-      FROM initiatives i WHERE i.title = 'Cost Optimization Program'
-      UNION ALL
-      SELECT i.id, 'Market research phase delayed due to resource constraints', COALESCE(alice_id, fallback_profile_id)
-      FROM initiatives i WHERE i.title = 'Market Expansion Strategy'
-      UNION ALL
-      SELECT i.id, 'Weekly status meeting scheduled for Fridays', COALESCE(john_id, fallback_profile_id)
-      FROM initiatives i WHERE i.title = 'Digital Transformation Initiative';
-    EXCEPTION WHEN foreign_key_violation THEN
-      RAISE NOTICE 'Skipping notes sample insert due to FK mismatch';
-    END;
+    -- Insert notes
+    INSERT INTO notes (initiative_id, content, created_by_id) 
+    SELECT i.id, 'Initial planning phase completed successfully', john_id
+    FROM initiatives i WHERE i.title = 'Digital Transformation Initiative'
+    UNION ALL
+    SELECT i.id, 'Customer feedback survey launched', jane_id
+    FROM initiatives i WHERE i.title = 'Customer Experience Enhancement'
+    UNION ALL
+    SELECT i.id, 'Budget approval received from finance team', bob_id
+    FROM initiatives i WHERE i.title = 'Cost Optimization Program'
+    UNION ALL
+    SELECT i.id, 'Market research phase delayed due to resource constraints', alice_id
+    FROM initiatives i WHERE i.title = 'Market Expansion Strategy'
+    UNION ALL
+    SELECT i.id, 'Weekly status meeting scheduled for Fridays', john_id
+    FROM initiatives i WHERE i.title = 'Digital Transformation Initiative';
 
     -- Insert achievements with proper date casting
-    BEGIN
-      INSERT INTO achievements (initiative_id, title, description, type, date_achieved, created_by_id)
-      SELECT i.id, 'Phase 1 Milestone', 'Successfully completed the first phase of digital transformation', 'milestone', '2024-03-15'::date, COALESCE(john_id, fallback_profile_id)
-      FROM initiatives i WHERE i.title = 'Digital Transformation Initiative'
-      UNION ALL
-      SELECT i.id, 'Customer Survey Launch', 'Launched comprehensive customer satisfaction survey', 'achievement', '2024-03-01'::date, COALESCE(jane_id, fallback_profile_id)
-      FROM initiatives i WHERE i.title = 'Customer Experience Enhancement'
-      UNION ALL
-      SELECT i.id, 'Budget Optimization', 'Identified 10% cost savings in Q1', 'achievement', '2024-03-31'::date, COALESCE(bob_id, fallback_profile_id)
-      FROM initiatives i WHERE i.title = 'Cost Optimization Program'
-      UNION ALL
-      SELECT i.id, 'Market Analysis Complete', 'Completed initial market analysis for target regions', 'milestone', '2024-05-15'::date, COALESCE(alice_id, fallback_profile_id)
-      FROM initiatives i WHERE i.title = 'Market Expansion Strategy';
-    EXCEPTION WHEN foreign_key_violation THEN
-      RAISE NOTICE 'Skipping achievements sample insert due to FK mismatch';
-    END;
+    INSERT INTO achievements (initiative_id, title, description, type, date_achieved, created_by_id)
+    SELECT i.id, 'Phase 1 Milestone', 'Successfully completed the first phase of digital transformation', 'milestone', '2024-03-15'::date, john_id
+    FROM initiatives i WHERE i.title = 'Digital Transformation Initiative'
+    UNION ALL
+    SELECT i.id, 'Customer Survey Launch', 'Launched comprehensive customer satisfaction survey', 'achievement', '2024-03-01'::date, jane_id
+    FROM initiatives i WHERE i.title = 'Customer Experience Enhancement'
+    UNION ALL
+    SELECT i.id, 'Budget Optimization', 'Identified 10% cost savings in Q1', 'achievement', '2024-03-31'::date, bob_id
+    FROM initiatives i WHERE i.title = 'Cost Optimization Program'
+    UNION ALL
+    SELECT i.id, 'Market Analysis Complete', 'Completed initial market analysis for target regions', 'milestone', '2024-05-15'::date, alice_id
+    FROM initiatives i WHERE i.title = 'Market Expansion Strategy';
 
     -- Insert executive summaries
-    BEGIN
-      INSERT INTO executive_summaries (title, content, summary_date, created_by_id) VALUES
-          (
-            'Q2 2024 Executive Summary',
-            'Overall progress is on track with 3 out of 4 major initiatives meeting their targets. Digital transformation showing strong progress at 75% completion.',
-            '2024-06-30'::date,
-            COALESCE(jane_id, fallback_profile_id)
-          ),
-          (
-            'July 2024 Monthly Update',
-            'Customer experience initiative requires immediate attention due to resource constraints. Recommend additional budget allocation.',
-            '2024-07-31'::date,
-            COALESCE(john_id, fallback_profile_id)
-          );
-    EXCEPTION WHEN foreign_key_violation THEN
-      RAISE NOTICE 'Skipping executive_summaries sample insert due to FK mismatch';
-    END;
+    INSERT INTO executive_summaries (title, content, summary_date, created_by_id) VALUES
+        ('Q2 2024 Executive Summary', 'Overall progress is on track with 3 out of 4 major initiatives meeting their targets. Digital transformation showing strong progress at 75% completion.', '2024-06-30'::date, jane_id),
+        ('July 2024 Monthly Update', 'Customer experience initiative requires immediate attention due to resource constraints. Recommend additional budget allocation.', '2024-07-31'::date, john_id);
 END $$;
 
 -- Insert navigation settings

@@ -23,7 +23,6 @@ import {
   Edit,
   Trash2,
   Target,
-  X,
   Plus,
   MessageSquare,
 } from "lucide-react"
@@ -481,6 +480,8 @@ export function InitiativesList({ initiatives, onView, onEdit, onDelete }: Initi
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation()
+                                console.log("🔧 Edit dropdown clicked for:", initiative.title)
+                                console.log("🔧 onEdit function exists:", !!onEdit)
                                 onEdit?.(initiative)
                               }}
                             >
@@ -511,18 +512,9 @@ export function InitiativesList({ initiatives, onView, onEdit, onDelete }: Initi
 
       {/* Initiative Detail Modal with improved UX */}
       <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-          {/* Custom close button */}
-          <button
-            onClick={() => setShowDetailModal(false)}
-            className="absolute right-6 top-6 z-50 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </button>
-
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-8">
           {selectedInitiative && (
-            <div className="p-8">
+            <div>
               {/* Header */}
               <div className="mb-8">
                 <h1 className="text-2xl font-semibold mb-4">{selectedInitiative.title}</h1>

@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
-import { getDatabaseService } from "@/lib/supabase/database-service"
+import { databaseService } from "@/lib/supabase/database-service"
 import type {
   User,
   Initiative,
@@ -165,13 +165,13 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
         allConfigItemsData,
         fieldConfigurationsData,
       ] = await Promise.all([
-        getDatabaseService().getUsers(),
-        getDatabaseService().getInitiatives(),
-        getDatabaseService().getAchievements(),
-        getDatabaseService().getNavigationConfig(),
-        getDatabaseService().getConfigItems(),
-        getDatabaseService().getAllConfigItems(),
-        getDatabaseService().getFieldConfigurations(),
+        databaseService.getUsers(),
+        databaseService.getInitiatives(),
+        databaseService.getAchievements(),
+        databaseService.getNavigationConfig(),
+        databaseService.getConfigItems(),
+        databaseService.getAllConfigItems(),
+        databaseService.getFieldConfigurations(),
       ])
 
       console.log("Loaded users:", usersData)
@@ -273,7 +273,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
     console.log("Updating user:", id, "with:", updates)
 
     try {
-      await getDatabaseService().updateUser(id, updates)
+      await databaseService.updateUser(id, updates)
       console.log("User updated successfully, refreshing data...")
       await loadData()
       console.log("=== Context.updateUser END ===")
@@ -288,7 +288,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
     console.log("Creating user:", userData)
 
     try {
-      await getDatabaseService().createUser(userData)
+      await databaseService.createUser(userData)
       console.log("User created successfully, refreshing data...")
       await loadData()
       console.log("=== Context.createUser END ===")
@@ -303,7 +303,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
     console.log("Deleting user:", id)
 
     try {
-      await getDatabaseService().deleteUser(id)
+      await databaseService.deleteUser(id)
       console.log("User deleted successfully, refreshing data...")
       await loadData()
       console.log("=== Context.deleteUser END ===")
@@ -319,7 +319,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
     console.log("Creating initiative:", initiative)
 
     try {
-      await getDatabaseService().createInitiative(initiative)
+      await databaseService.createInitiative(initiative)
       console.log("Initiative created successfully, refreshing data...")
       await loadData()
       console.log("=== Context.createInitiative END ===")
@@ -334,7 +334,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
     console.log("Updating initiative:", id, "with:", updates)
 
     try {
-      await getDatabaseService().updateInitiative(id, updates)
+      await databaseService.updateInitiative(id, updates)
       console.log("Initiative updated successfully, refreshing data...")
       await loadData()
       console.log("=== Context.updateInitiative END ===")
@@ -349,7 +349,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
     console.log("Deleting initiative:", id)
 
     try {
-      await getDatabaseService().deleteInitiative(id)
+      await databaseService.deleteInitiative(id)
       console.log("Initiative deleted successfully, refreshing data...")
       await loadData()
       console.log("=== Context.deleteInitiative END ===")
@@ -367,7 +367,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
 
     try {
       console.log("🔥 About to call databaseService.createAchievement...")
-      const result = await getDatabaseService().createAchievement(achievement)
+      const result = await databaseService.createAchievement(achievement)
       console.log("🔥 Database service returned result:", result)
 
       console.log("🔥 Achievement created successfully, refreshing data...")
@@ -393,7 +393,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
     console.log("Updating achievement:", id, "with:", updates)
 
     try {
-      await getDatabaseService().updateAchievement(id, updates)
+      await databaseService.updateAchievement(id, updates)
       console.log("Achievement updated successfully, refreshing data...")
       await loadData()
       console.log("=== Context.updateAchievement END ===")
@@ -408,7 +408,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
     console.log("Deleting achievement:", id)
 
     try {
-      await getDatabaseService().deleteAchievement(id)
+      await databaseService.deleteAchievement(id)
       console.log("Achievement deleted successfully, refreshing data...")
       await loadData()
       console.log("=== Context.deleteAchievement END ===")
@@ -425,7 +425,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
 
     try {
       setIsOptimisticUpdate(true)
-      await getDatabaseService().createNavigationConfig(config)
+      await databaseService.createNavigationConfig(config)
       console.log("Navigation config created successfully, refreshing data...")
       await loadData(true)
       console.log("=== Context.createNavigationConfig END ===")
@@ -446,7 +446,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
       // Apply optimistic update immediately
       setNavigationConfig((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)))
 
-      await getDatabaseService().updateNavigationConfig(id, updates)
+      await databaseService.updateNavigationConfig(id, updates)
       console.log("Navigation config updated successfully")
       console.log("=== Context.updateNavigationConfig END ===")
     } catch (error) {
@@ -466,7 +466,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
 
     try {
       setIsOptimisticUpdate(true)
-      await getDatabaseService().deleteNavigationConfig(id)
+      await databaseService.deleteNavigationConfig(id)
       console.log("Navigation config deleted successfully, refreshing data...")
       await loadData(true)
       console.log("=== Context.deleteNavigationConfig END ===")
@@ -496,7 +496,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
         return newItems.sort((a, b) => a.sortOrder - b.sortOrder)
       })
 
-      await getDatabaseService().reorderNavigationConfig(updates)
+      await databaseService.reorderNavigationConfig(updates)
       console.log("Navigation config reordered successfully")
       console.log("=== Context.reorderNavigationConfig END ===")
     } catch (error) {
@@ -517,7 +517,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
 
     try {
       setIsOptimisticUpdate(true)
-      await getDatabaseService().createConfigItem(item)
+      await databaseService.createConfigItem(item)
       console.log("Config item created successfully, refreshing data...")
       await loadData(true) // Skip loading state
       console.log("=== Context.createConfigItem END ===")
@@ -550,7 +550,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
         })
       }
 
-      await getDatabaseService().updateConfigItem(id, updates)
+      await databaseService.updateConfigItem(id, updates)
       console.log("Config item updated successfully")
 
       // Only refresh if it's not just a color update (to avoid flickering)
@@ -576,7 +576,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
 
     try {
       setIsOptimisticUpdate(true)
-      await getDatabaseService().deleteConfigItem(id)
+      await databaseService.deleteConfigItem(id)
       console.log("Config item deleted successfully, refreshing data...")
       await loadData(true) // Skip loading state
       console.log("=== Context.deleteConfigItem END ===")
@@ -643,7 +643,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
       })
 
       // Perform database update
-      await getDatabaseService().reorderConfigItems(category, updates)
+      await databaseService.reorderConfigItems(category, updates)
       console.log("Config items reordered successfully")
 
       // Don't refresh data - we already have the correct state
@@ -680,7 +680,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
         return newFieldConfigurations
       })
 
-      await getDatabaseService().updateFieldConfiguration(id, updates)
+      await databaseService.updateFieldConfiguration(id, updates)
       console.log("Field configuration updated successfully")
       console.log("=== Context.updateFieldConfiguration END ===")
     } catch (error) {
@@ -735,7 +735,7 @@ export function SupabaseDatabaseProvider({ children }: { children: React.ReactNo
       })
 
       // Perform database update
-      await getDatabaseService().reorderFieldConfigurations(updates)
+      await databaseService.reorderFieldConfigurations(updates)
       console.log("Field configurations reordered successfully")
       console.log("=== Context.reorderFieldConfigurations END ===")
     } catch (error) {
